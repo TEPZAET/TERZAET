@@ -21,7 +21,9 @@ class VpnNotificationManager(private val service: Service) {
 
     companion object {
         const val CHANNEL_ID = "io.github.p1neapplexpress.libp1npplydtransport.so.vpn"
+        private const val RECOVERY_CHANNEL_ID = "terzaet.recovery"
         const val NOTIFICATION_ID = 1
+        private const val RECOVERY_NOTIFICATION_ID = 2
         private const val UPDATE_INTERVAL_MS = 1000L
     }
 
@@ -31,12 +33,6 @@ class VpnNotificationManager(private val service: Service) {
     private var lastTxBytes = 0L
     private var lastSampleAt = 0L
 
-    // speedUpdater refreshes the pinned notification with the current
-    // upload/download speed once a second while the tunnel is running.
-    // TrafficStats is used instead of tapping the packet path directly:
-    // the data plane here is a native tun2socks process, opaque to this
-    // Kotlin code, but per-UID counters keep working regardless of which
-    // process is actually moving bytes through the TUN interface.
     private val speedUpdater = object : Runnable {
         override fun run() {
             val now = SystemClock.elapsedRealtime()
@@ -58,8 +54,6 @@ class VpnNotificationManager(private val service: Service) {
         service.startForeground(NOTIFICATION_ID, buildNotification(service.getString(R.string.notify_msg)))
     }
 
-    // startSpeedUpdates begins the live upload/download indicator; call once
-    // the tunnel is actually passing traffic (tun2socks reported running).
     fun startSpeedUpdates() {
         lastRxBytes = TrafficStats.getUidRxBytes(uid).coerceAtLeast(0)
         lastTxBytes = TrafficStats.getUidTxBytes(uid).coerceAtLeast(0)
@@ -68,8 +62,6 @@ class VpnNotificationManager(private val service: Service) {
         handler.post(speedUpdater)
     }
 
-    // stopSpeedUpdates cancels the periodic refresh; call when the tunnel
-    // stops so a stale speed reading isn't left on screen.
     fun stopSpeedUpdates() {
         handler.removeCallbacks(speedUpdater)
     }
@@ -79,14 +71,22 @@ class VpnNotificationManager(private val service: Service) {
         mgr.notify(NOTIFICATION_ID, buildNotification(text))
     }
 
-    private fun buildNotification(text: String): Notification {
-        val contentIntent = PendingIntent.getActivity(
-            service,
-            0,
-            Intent(service, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+    fun showRecoverySuccess() {
+        createChannel()
+        val mgr = service.getSystemService(NotificationManager::class.java) ?: return
+        val notification = NotificationCompat.Builder(service, RECOVERY_CHANNEL_ID)
+            .setContentTitle("Соединение восстановлено")
+            .setContentText("TERZAET снова защищает интернет-соединение")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setColor(0xFF4D7A42.toInt())
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent())
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        mgr.notify(RECOVERY_NOTIFICATION_ID, notification)
+    }
 
+    private fun buildNotification(text: String): Notification {
         return NotificationCompat.Builder(service, CHANNEL_ID)
             .setContentTitle(service.getString(R.string.notify_title))
             .setContentText(text)
@@ -94,10 +94,17 @@ class VpnNotificationManager(private val service: Service) {
             .setColor(0xFF4D7A42.toInt())
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setOngoing(true)
-            .setContentIntent(contentIntent)
+            .setContentIntent(contentIntent())
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
+
+    private fun contentIntent() = PendingIntent.getActivity(
+            service,
+            0,
+            Intent(service, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun formatSpeed(bytesPerSecond: Long): String = when {
         bytesPerSecond < 1024 -> "$bytesPerSecond B/s"
@@ -108,12 +115,23 @@ class VpnNotificationManager(private val service: Service) {
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val mgr = service.getSystemService(NotificationManager::class.java) ?: return
-        if (mgr.getNotificationChannel(CHANNEL_ID) != null) return
-        val ch = NotificationChannel(
-            CHANNEL_ID,
-            service.getString(R.string.channel_name),
-            NotificationManager.IMPORTANCE_LOW,
-        )
-        mgr.createNotificationChannel(ch)
+        if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
+            mgr.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    service.getString(R.string.channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                )
+            )
+        }
+        if (mgr.getNotificationChannel(RECOVERY_CHANNEL_ID) == null) {
+            mgr.createNotificationChannel(
+                NotificationChannel(
+                    RECOVERY_CHANNEL_ID,
+                    "Восстановление соединения",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                )
+            )
+        }
     }
 }

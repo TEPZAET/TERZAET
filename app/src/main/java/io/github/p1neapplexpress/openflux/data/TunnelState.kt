@@ -29,6 +29,14 @@ sealed interface TunnelState {
         override val color: Int = 0xFF22C55E.toInt()
     }
 
+    data class Restoring(override val tunnel: Tunnel, val attempt: Int) : TunnelState {
+        override val color: Int = 0xFFF59E0B.toInt()
+    }
+
+    data class Unavailable(override val tunnel: Tunnel) : TunnelState {
+        override val color: Int = 0xFFEF4444.toInt()
+    }
+
     data class Stopping(override val tunnel: Tunnel?) : TunnelState {
         override val color: Int = 0xFF6B7280.toInt()
     }
@@ -43,6 +51,8 @@ sealed interface TunnelState {
                 this is StartingTransport ||
                 this is StartingTun2Socks ||
                 this is Checking ||
+                this is Restoring ||
+                this is Unavailable ||
                 this is Stopping ||
                 this is Running
 }

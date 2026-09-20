@@ -76,8 +76,8 @@
                 <Space android:layout_width="12dp" android:layout_height="1dp" />
                 <LinearLayout android:id="@+id/addButton" android:tag="glass" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
                     android:background="@drawable/glass_action" android:elevation="4dp" android:gravity="center" android:orientation="horizontal" android:clickable="true" android:focusable="true">
-                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_camera_scan" android:contentDescription="@string/scan_qr" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Снимок" android:textColor="#292E33" android:textSize="14sp" />
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_health_check" android:contentDescription="Проверить соединение" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Проверить" android:textColor="#292E33" android:textSize="14sp" />
                 </LinearLayout>
             </LinearLayout>
 

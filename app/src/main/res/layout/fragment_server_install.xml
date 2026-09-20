@@ -39,7 +39,7 @@
             <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="SSH-пароль" app:endIconMode="password_toggle">
                 <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverPassword" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textPassword" android:singleLine="true" android:importantForAutofill="no" />
             </com.google.android.material.textfield.TextInputLayout>
-            <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Ссылка на документ Яндекса">
+            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverDocumentContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Ссылка на документ Яндекса" app:endIconMode="custom" app:endIconDrawable="@drawable/ic_help_circle" app:endIconContentDescription="Как получить документ Яндекса">
                 <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverDocument" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textUri" android:singleLine="true" />
             </com.google.android.material.textfield.TextInputLayout>
             <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverEncryptionSwitch"

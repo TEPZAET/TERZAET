@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.textfield.TextInputLayout
 import androidx.core.view.isVisible
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.UIKeyboardInteractive
@@ -65,6 +66,13 @@ class ServerInstallFragment : BaseFragment() {
         val encryptionContainer = view.findViewById<View>(R.id.serverEncryptionContainer)
         val copyKey = view.findViewById<View>(R.id.copyEncryptionKey)
         val removeServer = view.findViewById<View>(R.id.removeServerButton)
+        view.findViewById<TextInputLayout>(R.id.serverDocumentContainer).setEndIconOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Как подготовить документ")
+                .setMessage("1. Откройте Яндекс Документы и создайте пустой документ.\n\n2. Нажмите «Поделиться» и разрешите просмотр по ссылке.\n\n3. Скопируйте публичную ссылку и вставьте её в это поле.\n\nНе используйте документ с личной информацией: TERZAET применяет его только как транспорт.")
+                .setPositiveButton("Понятно", null)
+                .show()
+        }
 
         encryptionSwitch.setOnCheckedChangeListener { _, enabled ->
             encryptionContainer.isVisible = enabled
@@ -170,13 +178,20 @@ class ServerInstallFragment : BaseFragment() {
         spinner.visibility = View.VISIBLE
         status.text = "Проверка VDS…"
         viewLifecycleOwner.lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) { detectExisting(request) }
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val check = preflight(request).getOrThrow()
+                    val found = detectExisting(request).getOrThrow()
+                    check to found
+                }
+            }
             spinner.visibility = View.GONE
             button.isEnabled = true
             result.onFailure {
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(it)
-            }.onSuccess { found ->
+            }.onSuccess { (check, found) ->
+                status.text = "VDS готов · Docker ${if (check.dockerReady) "готов" else "будет установлен"} · свободно ${check.freeGb} ГБ · HTTPS доступен"
                 if (!found.terzaet && !found.openFlux) {
                     install(request)
                     return@onSuccess
@@ -200,6 +215,26 @@ class ServerInstallFragment : BaseFragment() {
                     .show()
             }
         }
+    }
+
+    private fun preflight(request: InstallRequest): Result<Preflight> = runCatching {
+        val output = runSshCommand(
+            request,
+            "d=0; p=0; h=0; " +
+                "command -v docker >/dev/null 2>&1 && d=1 || true; " +
+                "(command -v apt-get >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v apk >/dev/null 2>&1) && p=1 || true; " +
+                "f=\$(df -Pk / | awk 'NR==2 {print \$4}'); " +
+                "(curl -fsI --max-time 12 https://disk.yandex.ru >/dev/null 2>&1 || wget -q --spider -T 12 https://disk.yandex.ru >/dev/null 2>&1) && h=1 || true; " +
+                "printf 'DOCKER=%s PACKAGE=%s FREE=%s HTTPS=%s' \"\$d\" \"\$p\" \"\$f\" \"\$h\""
+        )
+        val docker = output.contains("DOCKER=1")
+        val packageManager = output.contains("PACKAGE=1")
+        val https = output.contains("HTTPS=1")
+        val freeKb = Regex("FREE=(\\d+)").find(output)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        if (!docker && !packageManager) error("PREFLIGHT_DOCKER")
+        if (freeKb < 1_048_576L) error("PREFLIGHT_SPACE")
+        if (!https) error("PREFLIGHT_HTTPS")
+        Preflight(docker, freeKb / 1_048_576L)
     }
 
     private fun removeSelectedThenInstall(request: InstallRequest, terzaet: Boolean, openFlux: Boolean) {
@@ -411,6 +446,12 @@ class ServerInstallFragment : BaseFragment() {
                 "[SSH-703] Сервер не ответил вовремя\nПроверьте IP, SSH-порт и доступность VDS."
             "hostkey" in lower || "host key" in lower ->
                 "[SSH-704] Ключ сервера изменился\nСоединение остановлено для защиты. Проверьте, не переустанавливали ли VDS."
+            "preflight_docker" in lower ->
+                "[VDS-710] Docker недоступен\nНа сервере нет Docker и поддерживаемого менеджера пакетов."
+            "preflight_space" in lower ->
+                "[VDS-711] Недостаточно места\nОсвободите минимум 1 ГБ на системном диске VDS."
+            "preflight_https" in lower ->
+                "[VDS-712] Закрыт исходящий HTTPS\nРазрешите серверу подключения через порт 443."
             "docker" in lower ->
                 "[SRV-801] Docker не удалось подготовить\nСвободите место на диске и проверьте доступ VDS к интернету.\n$raw"
             "document" in lower || "yandex" in lower ->
@@ -439,6 +480,7 @@ class ServerInstallFragment : BaseFragment() {
     }
 
     private data class DetectedInstall(val terzaet: Boolean, val openFlux: Boolean)
+    private data class Preflight(val dockerReady: Boolean, val freeGb: Long)
 
     private class FirstUseInfo(private val password: String) : UserInfo, UIKeyboardInteractive {
         override fun getPassword() = password

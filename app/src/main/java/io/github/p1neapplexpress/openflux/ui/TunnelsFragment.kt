@@ -192,7 +192,7 @@ class TunnelsFragment : BaseFragment() {
             animatePress(it)
             when (vm.active.value) {
                 is TunnelState.Running -> vm.stop()
-                is TunnelState.Idle, is TunnelState.Error -> {
+                is TunnelState.Idle, is TunnelState.Error, is TunnelState.Unavailable -> {
                     if (vm.selected.value == null) openManualSetup() else requestVpnAndStart()
                 }
                 else -> Unit
@@ -214,7 +214,7 @@ class TunnelsFragment : BaseFragment() {
         }
         view.findViewById<View>(R.id.addButton).setOnClickListener {
             animatePress(it)
-            qrScanner.launch(null)
+            showDiagnostics()
         }
         val serverHandle = view.findViewById<View>(R.id.serverSwipeHandle)
         val serverGestures = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
@@ -284,6 +284,28 @@ class TunnelsFragment : BaseFragment() {
         )
     }
 
+    private fun showDiagnostics() {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Проверка соединения")
+            .setMessage("Проверяем туннель, сервер и DNS…")
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        dialog.show()
+        viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val result = vm.diagnose()
+            launch(kotlinx.coroutines.Dispatchers.Main) {
+                if (!isAdded || !dialog.isShowing) return@launch
+                fun state(ok: Boolean) = if (ok) "Готово" else "Нет ответа"
+                dialog.setMessage(
+                    "Туннель · ${state(result.tunnelReady)}\n" +
+                        "Сервер · ${state(result.serverReady)}${result.latencyMs?.let { " · $it мс" }.orEmpty()}\n" +
+                        "DNS · ${state(result.dnsReady)}"
+                )
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Закрыть"
+            }
+        }
+    }
+
     private fun showServerSheet() {
         val dialog = BottomSheetDialog(requireContext())
         val density = resources.displayMetrics.density
@@ -323,6 +345,7 @@ class TunnelsFragment : BaseFragment() {
             }
             val edit = row.findViewById<ImageButton>(R.id.serverEdit)
             val delete = row.findViewById<ImageButton>(R.id.serverDelete)
+            row.findViewById<ImageButton>(R.id.serverCheck).setOnClickListener { showTunnelCheck(tunnel) }
             edit.alpha = if (isActive) 0.28f else 1f
             delete.alpha = if (isActive) 0.28f else 1f
             edit.setOnClickListener {
@@ -357,6 +380,23 @@ class TunnelsFragment : BaseFragment() {
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(6) })
         dialog.setContentView(content)
         dialog.show()
+    }
+
+    private fun showTunnelCheck(tunnel: Tunnel) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle(tunnel.name)
+            .setMessage("Проверяем документ…")
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        dialog.show()
+        viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val result = vm.checkTunnel(tunnel)
+            launch(kotlinx.coroutines.Dispatchers.Main) {
+                if (!isAdded || !dialog.isShowing) return@launch
+                dialog.setMessage(if (result.ready) "Готово · ${result.message}" else "Нет ответа · ${result.message}")
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Закрыть"
+            }
+        }
     }
 
     
@@ -565,6 +605,38 @@ class TunnelsFragment : BaseFragment() {
                 stopRotation()
                 startBreath()
                 animateIcon(scale = 0.94f, alpha = 0.65f)
+                hideUptime()
+            }
+
+            is TunnelState.Restoring -> {
+                stopMetrics()
+                loopBackgroundVideo()
+                val label = if (state.attempt == 0) "Ожидаем сеть…" else "Восстанавливаем…"
+                statusText.text = label
+                headerStatus.text = label
+                connectLabel.text = label
+                statusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                crossFadeStatus()
+                aurora.setIntensity(0.15f)
+                pulseRings.stop()
+                stopRotation()
+                startBreath()
+                animateIcon(scale = 0.94f, alpha = 0.7f)
+                showUptime()
+            }
+
+            is TunnelState.Unavailable -> {
+                stopMetrics()
+                statusText.text = "Сервер недоступен"
+                headerStatus.text = "Сервер недоступен"
+                connectLabel.text = "Повторить"
+                statusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.state_error))
+                crossFadeStatus()
+                aurora.setIntensity(0.7f)
+                pulseRings.stop()
+                stopRotation()
+                stopBreath()
+                animateIcon(scale = 1f, alpha = 0.9f)
                 hideUptime()
             }
 

@@ -14,6 +14,7 @@ import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelRepository
 import io.github.p1neapplexpress.openflux.data.TunnelState
 import io.github.p1neapplexpress.openflux.data.TunnelViewType
+import io.github.p1neapplexpress.openflux.data.TunnelPayload
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import io.github.p1neapplexpress.openflux.event.EventBus
 import io.github.p1neapplexpress.openflux.service.SocksVpnService
@@ -29,6 +30,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import java.net.InetAddress
+import java.net.HttpURLConnection
+import java.net.URL
 
 class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -37,7 +42,6 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         private const val POLL_MS = 250L
         private const val BIND_TIMEOUT_MS = 5_000L
 
-        // The service gives OpenFlux 45 s to open its SOCKS5 port and reports failures itself.
         private const val TRANSPORT_TIMEOUT_MS = 50_000L
         private const val TUN2SOCKS_TIMEOUT_MS = 10_000L
         private const val SHUTDOWN_TIMEOUT_MS = 6_000L
@@ -50,8 +54,6 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     private var bound = false
     private var activeTunnelData: Tunnel? = null
 
-    // Starts and teardowns run one after another so a quick stop/start cannot
-    // unbind or stop the session that was just started.
     private var startJob: Job? = null
     private var teardownJob: Job? = null
 
@@ -69,7 +71,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
             service = null
             bound = false
             Logx.d(TAG, "service disconnected")
-            if (_active.value is TunnelState.Stopping || teardownJob?.isActive == true) return
+            if (_active.value is TunnelState.Stopping || _active.value is TunnelState.Unavailable || teardownJob?.isActive == true) return
             if (_active.value !is TunnelState.Idle) {
                 _active.value = TunnelState.Idle
                 stopUptimeCounter()
@@ -102,7 +104,19 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
         viewModelScope.launch {
             EventBus.events.collect { ev ->
-                if (ev is AppEvent.NativeProcessExited && _active.value.isActive) {
+                if (ev is AppEvent.ConnectionStatus) {
+                    val tunnel = activeTunnelData ?: _active.value.tunnel
+                    if (tunnel != null) {
+                        when (ev.status) {
+                            AppEvent.Status.CHECKING -> if (_active.value is TunnelState.Restoring) _active.value = TunnelState.Restoring(tunnel, 1)
+                            AppEvent.Status.WAITING_FOR_NETWORK -> _active.value = TunnelState.Restoring(tunnel, 0)
+                            AppEvent.Status.RESTORING -> _active.value = TunnelState.Restoring(tunnel, 1)
+                            AppEvent.Status.RESTORED -> _active.value = TunnelState.Running(tunnel)
+                            AppEvent.Status.UNAVAILABLE -> _active.value = TunnelState.Unavailable(tunnel)
+                        }
+                    }
+                }
+                if (ev is AppEvent.NativeProcessExited && _active.value.isActive && _active.value !is TunnelState.Unavailable) {
                     fail("TR-203", "Транспорт неожиданно остановлен: ${ev.message}")
                 }
                 if (ev is AppEvent.VpnRevoked && _active.value !is TunnelState.Idle) {
@@ -216,7 +230,6 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Polls [ready] until it holds; returns null on success or the error to show. */
     private suspend fun awaitService(
         timeoutMs: Long,
         timeoutCode: String,
@@ -246,7 +259,6 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     private fun fail(code: String, message: String) = fail(errorText(code, message))
 
     private fun fail(message: String) {
-        // The start loop and the exit event can both report the same failure.
         if (startJob == null && teardownJob?.isActive == true) return
         Logx.e(TAG, message)
         teardown(TunnelState.Error(message))
@@ -261,7 +273,6 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         teardownJob = CoroutineScope(Dispatchers.IO).launch {
             previous?.join()
             if (bindRequested) {
-                // A cancelled start may still be binding; the service must be stopped anyway.
                 val s = awaitBinding()
                 var stoppedCleanly = true
                 try {
@@ -347,6 +358,40 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
+    suspend fun diagnose(): DiagnosticResult {
+        val s = service
+        val tunnelReady = runCatching { s?.isVpnRunning() == true }.getOrDefault(false)
+        val latency = runCatching { s?.measureDataPathLatency()?.takeIf { it >= 0L } }.getOrNull()
+        val dnsReady = withTimeoutOrNull(5_000L) {
+            runCatching { InetAddress.getByName("disk.yandex.ru").hostAddress != null }.getOrDefault(false)
+        } ?: false
+        return DiagnosticResult(
+            tunnelReady = tunnelReady,
+            serverReady = latency != null,
+            dnsReady = dnsReady,
+            latencyMs = latency,
+        )
+    }
+
+    suspend fun checkTunnel(tunnel: Tunnel): ConfigCheck {
+        val url = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url
+        if (!url.startsWith("https://")) return ConfigCheck(false, "Ссылка на документ не найдена")
+        return withTimeoutOrNull(12_000L) {
+            runCatching {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.instanceFollowRedirects = true
+                connection.connectTimeout = 8_000
+                connection.readTimeout = 8_000
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Range", "bytes=0-0")
+                val code = connection.responseCode
+                connection.disconnect()
+                if (code in 200..399) ConfigCheck(true, "Документ доступен")
+                else ConfigCheck(false, "Документ вернул код $code")
+            }.getOrElse { ConfigCheck(false, "Документ недоступен") }
+        } ?: ConfigCheck(false, "Проверка заняла слишком много времени")
+    }
+
     private fun startUptimeCounter() {
         uptimeJob?.cancel()
         _uptimeSeconds.value = 0L
@@ -385,3 +430,12 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         try { getApplication<Application>().unbindService(connection) } catch (_: Exception) {}
     }
 }
+
+data class DiagnosticResult(
+    val tunnelReady: Boolean,
+    val serverReady: Boolean,
+    val dnsReady: Boolean,
+    val latencyMs: Long?,
+)
+
+data class ConfigCheck(val ready: Boolean, val message: String)

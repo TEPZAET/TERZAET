@@ -17,6 +17,8 @@ import io.github.p1neapplexpress.openflux.data.TransportType
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ServersFragment : BaseFragment() {
     private val vm: TunnelsViewModel by activityViewModels()
@@ -51,9 +53,33 @@ class ServersFragment : BaseFragment() {
             row.findViewById<TextView>(R.id.serverName).text = tunnel.name
             row.findViewById<TextView>(R.id.serverType).text = TransportType.from(tunnel.transportType).name
             row.setOnClickListener { vm.selectTunnel(tunnel) }
-            row.findViewById<ImageButton>(R.id.serverEdit).setOnClickListener { open(AddTunFragment.edit(tunnel)) }
-            row.findViewById<ImageButton>(R.id.serverDelete).setOnClickListener { confirmDelete(tunnel) }
+            val active = vm.active.value.isActive && vm.active.value.tunnel?.id == tunnel.id
+            row.findViewById<ImageButton>(R.id.serverCheck).setOnClickListener { check(tunnel) }
+            row.findViewById<ImageButton>(R.id.serverEdit).apply {
+                alpha = if (active) 0.3f else 1f
+                setOnClickListener { if (!active) open(AddTunFragment.edit(tunnel)) }
+            }
+            row.findViewById<ImageButton>(R.id.serverDelete).apply {
+                alpha = if (active) 0.3f else 1f
+                setOnClickListener { if (!active) confirmDelete(tunnel) }
+            }
             list.addView(row)
+        }
+    }
+
+    private fun check(tunnel: Tunnel) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle(tunnel.name)
+            .setMessage("Проверяем документ…")
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        dialog.show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { vm.checkTunnel(tunnel) }
+            if (dialog.isShowing) {
+                dialog.setMessage(if (result.ready) "Готово · ${result.message}" else "Нет ответа · ${result.message}")
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Закрыть"
+            }
         }
     }
 

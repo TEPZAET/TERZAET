@@ -3,7 +3,9 @@ package io.github.p1neapplexpress.openflux.service
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.IBinder
 import io.github.p1neapplexpress.openflux.IUnifiedService
 import io.github.p1neapplexpress.openflux.event.AppEvent
@@ -41,6 +43,8 @@ class SocksVpnService : android.net.VpnService() {
     private var healthJob: Job? = null
     private var lastTransportArgs: List<String>? = null
     private var lastEncryptionKey: String? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var networkAvailable = false
 
     private val binder = object : IUnifiedService.Stub() {
         override fun isVpnRunning(): Boolean = vpn.isRunning.get()
@@ -112,6 +116,7 @@ class SocksVpnService : android.net.VpnService() {
         }
         tun2socks = Tun2SocksLauncher(applicationContext)
         notifications = VpnNotificationManager(this)
+        registerNetworkObserver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -143,6 +148,10 @@ class SocksVpnService : android.net.VpnService() {
 
     override fun onDestroy() {
         stopEverything()
+        networkCallback?.let { callback ->
+            runCatching { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(callback) }
+        }
+        networkCallback = null
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -158,6 +167,7 @@ class SocksVpnService : android.net.VpnService() {
                     networkWasMissing = true
                     failures = 0
                     notifications.updateContent("Нет сети · TERZAET ждёт подключения")
+                    EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.WAITING_FOR_NETWORK))
                     continue
                 }
                 if (networkWasMissing) {
@@ -166,6 +176,7 @@ class SocksVpnService : android.net.VpnService() {
                     continue
                 }
                 val latency = supervisor.measureDataPathLatency(3_000)
+                EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.CHECKING))
                 if (latency >= 0L) {
                     failures = 0
                 } else {
@@ -188,14 +199,15 @@ class SocksVpnService : android.net.VpnService() {
         }
         notifications.stopSpeedUpdates()
         notifications.updateContent("Связь потеряна · восстанавливаем…")
-        EventBus.dispatch(AppEvent.LogMessage("[W] Автовосстановление: $reason"))
+        EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORING))
+        EventBus.dispatch(AppEvent.LogMessage("Соединение восстанавливается"))
         var restored = false
-        for (attempt in 1..3) {
+        for (attempt in 1..4) {
             if (stopping.get()) break
             runCatching { tun2socks.stop() }
             vpn.isRunning.set(false)
             runCatching { supervisor.stop() }
-            delay(600L * attempt)
+            delay((1_000L shl (attempt - 1)).coerceAtMost(8_000L))
             supervisor.start(args, lastEncryptionKey)
             val deadline = System.currentTimeMillis() + 45_000L
             while (!supervisor.isReady && supervisor.error == null && System.currentTimeMillis() < deadline && !stopping.get()) {
@@ -211,16 +223,50 @@ class SocksVpnService : android.net.VpnService() {
         if (restored) {
             notifications.stopSpeedUpdates()
             notifications.updateContent("Подключение восстановлено")
-            EventBus.dispatch(AppEvent.LogMessage("[I] Подключение восстановлено автоматически"))
+            notifications.showRecoverySuccess()
+            EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORED))
+            EventBus.dispatch(AppEvent.LogMessage("Подключение восстановлено"))
             delay(4_000L)
             if (!stopping.get()) {
                 notifications.startSpeedUpdates()
                 startHealthMonitor()
             }
         } else if (!stopping.get()) {
+            notifications.updateContent("Сервер недоступен · откройте TERZAET")
+            EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.UNAVAILABLE))
             EventBus.dispatch(AppEvent.NativeProcessExited("Не удалось восстановить соединение автоматически"))
             stopEverything()
         }
+    }
+
+    private fun registerNetworkObserver() {
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                val wasUnavailable = !networkAvailable
+                networkAvailable = true
+                if (wasUnavailable && vpn.isRunning.get() && !reconnecting.get() && !stopping.get()) {
+                    serviceScope.launch {
+                        delay(1_200L)
+                        recoverTransport("network changed")
+                    }
+                }
+            }
+
+            override fun onLost(network: Network) {
+                networkAvailable = hasInternetNetwork()
+                if (!networkAvailable && vpn.isRunning.get()) {
+                    notifications.updateContent("Нет сети · подключение будет восстановлено")
+                    EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.WAITING_FOR_NETWORK))
+                }
+            }
+        }
+        networkCallback = callback
+        networkAvailable = hasInternetNetwork()
+        manager.registerNetworkCallback(request, callback)
     }
 
     private fun hasInternetNetwork(): Boolean {

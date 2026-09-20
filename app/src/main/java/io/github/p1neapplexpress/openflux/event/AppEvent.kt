@@ -6,7 +6,14 @@ sealed interface AppEvent {
     data object TransportConnected : AppEvent
     data object TransportDisconnected : AppEvent
     data object VpnRevoked : AppEvent
-
-    /** The OpenFlux process died or never came up; the VPN has been stopped. */
+    data class ConnectionStatus(val status: Status) : AppEvent
     data class NativeProcessExited(val message: String) : AppEvent
+
+    enum class Status {
+        CHECKING,
+        WAITING_FOR_NETWORK,
+        RESTORING,
+        RESTORED,
+        UNAVAILABLE,
+    }
 }

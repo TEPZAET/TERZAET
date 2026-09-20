@@ -48,29 +48,28 @@ class LogsFragment : BaseFragment() {
 
     private fun appendCard(raw: String) {
         val lower = raw.lowercase(Locale.ROOT)
-        val error = lower.contains("fatal") || lower.contains("error") || lower.contains("failed")
-        val success = lower.contains("data path verified") || lower.contains("vpn configured") ||
-            lower.contains("tun2socks running") || lower.contains("openflux is up")
+        val error = lower.contains("не удалось") || lower.contains("отклонил") || lower.contains("не ответил")
+        val success = lower.contains("восстановлено") || lower.contains("запущен") || lower.contains("проверена")
         val title: String
         val explanation: String
         when {
-            lower.contains("dns via tunnel") && lower.contains("timed out") -> {
+            lower.contains("dns ожидает") -> {
                 title = "DNS ожидает канал"
                 explanation = "После подключения серверу может понадобиться несколько секунд. TERZAET повторит запрос автоматически."
             }
-            lower.contains("websocket") && (lower.contains("1006") || lower.contains("read error")) -> {
+            lower.contains("переподключается") || lower.contains("восстанавливаем") -> {
                 title = "Транспорт переподключается"
                 explanation = "Сервер закрыл соединение без ответа. Приложение повторяет подключение."
             }
-            lower.contains("data path verified") -> {
+            lower.contains("передача данных проверена") -> {
                 title = "Канал проверен"
                 explanation = "Сервер передаёт данные, VPN-интерфейс можно запускать."
             }
-            lower.contains("tun2socks running") || lower.contains("vpn configured") -> {
+            lower.contains("канал запущен") || lower.contains("vpn-интерфейс") -> {
                 title = "VPN готов"
                 explanation = "Системный туннель запущен и принимает трафик."
             }
-            lower.contains("socks5") && lower.contains("connect") -> {
+            lower.contains("запрос передан") -> {
                 title = "Запрос передан"
                 explanation = "Приложение отправило соединение через выбранный сервер."
             }
@@ -80,13 +79,13 @@ class LogsFragment : BaseFragment() {
             }
             else -> {
                 title = "Состояние подключения"
-                explanation = "Компоненты TERZAET обновили состояние."
+                explanation = raw
             }
         }
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
         val card = TextView(requireContext()).apply {
-            text = "$title  ·  ${time.format(Date())}\n$explanation\n\nТехнические сведения: $raw"
+            text = "$title  ·  ${time.format(Date())}\n$explanation"
             textSize = 12f
             setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
             setLineSpacing(0f, 1.12f)
@@ -105,10 +104,8 @@ class LogsFragment : BaseFragment() {
     }
 
     private fun friendlyReason(lower: String) = when {
-        lower.contains("timed out") -> "Сервер не ответил вовремя. Проверьте интернет и доступность документа."
-        lower.contains("authentication") || lower.contains("auth fail") -> "Сервер отклонил логин или пароль."
-        lower.contains("unknownhost") -> "Адрес сервера не найден. Проверьте IP или домен."
-        lower.contains("refused") -> "Сервер доступен, но нужная служба пока не принимает соединения."
-        else -> "Операция остановлена. Технические сведения ниже помогут определить причину."
+        lower.contains("авторизац") -> "Проверьте данные доступа к серверу."
+        lower.contains("не ответил") -> "Проверьте интернет и повторите попытку через несколько секунд."
+        else -> "Соединение будет проверено повторно."
     }
 }

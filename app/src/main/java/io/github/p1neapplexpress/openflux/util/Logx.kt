@@ -30,9 +30,8 @@ object Logx {
         EventBus.dispatch(AppEvent.LogMessage("[E/$tag] $msg"))
     }
 
-    /** Never logs value — only key presence. */
     fun secret(tag: String, key: String) {
         if (!verbose) return
-        Log.d(tag, "secret present: $key")
+        Log.d(tag, "secret present")
     }
 }

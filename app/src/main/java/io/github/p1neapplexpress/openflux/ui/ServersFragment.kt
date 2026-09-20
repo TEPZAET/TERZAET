@@ -16,6 +16,7 @@ import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.TransportType
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.event.AppEvent
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
 class ServersFragment : BaseFragment() {
@@ -65,7 +66,7 @@ class ServersFragment : BaseFragment() {
     }
 
     private fun confirmDelete(tunnel: Tunnel) {
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete_config_title)
             .setMessage(tunnel.name)
             .setNegativeButton(R.string.cancel, null)

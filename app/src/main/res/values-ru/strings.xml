@@ -32,7 +32,7 @@
     <string name="starting_tsocks">Подготавливаем защищённый канал…</string>
     <string name="connecting">Запускаем защиту…</string>
     <string name="checking_connection">Проверяем передачу данных…</string>
-    <string name="disconnecting">Завершаем соединение…</string>
+    <string name="disconnecting">Завершение…</string>
     <string name="running">Интернет защищён</string>
     <string name="stopped">Остановлено</string>
 

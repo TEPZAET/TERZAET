@@ -14,6 +14,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.UIKeyboardInteractive
 import com.jcraft.jsch.UserInfo
@@ -60,13 +61,21 @@ class AddTunFragment : BaseFragment() {
         val key = view.findViewById<TextView>(R.id.encryptionKey)
         val save = view.findViewById<Button>(R.id.saveButton)
         val removeFromVds = view.findViewById<Button>(R.id.removeFromVdsButton)
+        val adminContainer = view.findViewById<View>(R.id.vdsAdminContainer)
+        val adminHost = view.findViewById<EditText>(R.id.adminHost)
+        val adminUser = view.findViewById<EditText>(R.id.adminUser)
+        val adminPort = view.findViewById<EditText>(R.id.adminPort)
         editing?.let { tunnel ->
             name.text = tunnel.name
             url.text = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url
             key.text = tunnel.encryptionKey.orEmpty()
             encryptionSwitch.isChecked = !tunnel.encryptionKey.isNullOrBlank()
             save.text = "Сохранить изменения"
-            removeFromVds.isVisible = !tunnel.adminHost.isNullOrBlank() && !tunnel.adminUser.isNullOrBlank()
+            adminContainer.isVisible = true
+            adminHost.setText(tunnel.adminHost.orEmpty())
+            adminUser.setText(tunnel.adminUser ?: "root")
+            adminPort.setText((tunnel.adminPort ?: 22).toString())
+            removeFromVds.isVisible = true
         }
         keyContainer.isVisible = encryptionSwitch.isChecked
         encryptionSwitch.setOnCheckedChangeListener { _, enabled ->
@@ -96,22 +105,33 @@ class AddTunFragment : BaseFragment() {
                 transportType = transport.name,
                 transportConnPayload = payload,
                 encryptionKey = rawKey.takeIf { encryptionSwitch.isChecked }?.let(EncryptionKey::normalize),
-                adminHost = editing?.adminHost,
-                adminUser = editing?.adminUser,
-                adminPort = editing?.adminPort,
+                adminHost = adminHost.text.toString().trim().takeIf { editing != null && it.isNotBlank() },
+                adminUser = adminUser.text.toString().trim().takeIf { editing != null && it.isNotBlank() },
+                adminPort = adminPort.text.toString().toIntOrNull()?.takeIf { editing != null && it in 1..65535 },
             )
             editing?.let { vm.updateTunnel(it, tunnel) } ?: vm.addTunnel(tunnel)
             Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
-        removeFromVds.setOnClickListener { editing?.let(::requestVdsRemoval) }
+        removeFromVds.setOnClickListener {
+            val host = adminHost.text.toString().trim()
+            val user = adminUser.text.toString().trim()
+            val port = adminPort.text.toString().toIntOrNull() ?: 22
+            if (host.isBlank() || user.isBlank() || port !in 1..65535) {
+                Toast.makeText(requireContext(), "Введите адрес VDS, пользователя и порт", Toast.LENGTH_SHORT).show()
+            } else {
+                requestVdsRemoval(host, user, port)
+            }
+        }
     }
 
-    private fun requestVdsRemoval(tunnel: Tunnel) {
+    private fun requestVdsRemoval(host: String, user: String, port: Int) {
         val content = layoutInflater.inflate(R.layout.dialog_ssh_password, null)
-        content.findViewById<TextView>(R.id.passwordHint).text = "Введите SSH-пароль для ${tunnel.adminUser}@${tunnel.adminHost}. Пароль используется один раз и не сохраняется."
+        content.findViewById<TextView>(R.id.passwordHint).text = "Введите SSH-пароль для $user@$host. Пароль используется один раз и не сохраняется."
         val password = content.findViewById<EditText>(R.id.sshPassword)
-        val dialog = AlertDialog.Builder(requireContext())
+        val progress = content.findViewById<View>(R.id.removalProgress)
+        val progressText = content.findViewById<TextView>(R.id.removalStatus)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle("Удалить с VDS?")
             .setView(content)
             .setNegativeButton(R.string.cancel, null)
@@ -125,14 +145,21 @@ class AddTunFragment : BaseFragment() {
                     return@setOnClickListener
                 }
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
+                password.isEnabled = false
+                progress.isVisible = true
+                progressText.text = "Подключаемся и удаляем TERZAET…"
                 viewLifecycleOwner.lifecycleScope.launch {
-                    val result = withContext(Dispatchers.IO) { removeFromVds(tunnel, value) }
+                    val result = withContext(Dispatchers.IO) { removeFromVds(host, user, port, value) }
                     password.text.clear()
                     result.onSuccess {
                         dialog.dismiss()
                         Toast.makeText(requireContext(), "TERZAET удалён с VDS", Toast.LENGTH_LONG).show()
                     }.onFailure {
                         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = true
+                        password.isEnabled = true
+                        progress.isVisible = false
                         password.error = "Не удалось подключиться или удалить сервер"
                     }
                 }
@@ -141,14 +168,12 @@ class AddTunFragment : BaseFragment() {
         dialog.show()
     }
 
-    private fun removeFromVds(tunnel: Tunnel, password: String): Result<Unit> = runCatching {
-        val host = tunnel.adminHost ?: error("VDS address missing")
-        val user = tunnel.adminUser ?: error("VDS user missing")
+    private fun removeFromVds(host: String, user: String, port: Int, password: String): Result<Unit> = runCatching {
         val jsch = JSch()
         val knownHosts = File(requireContext().filesDir, "ssh_known_hosts")
         if (!knownHosts.exists()) knownHosts.createNewFile()
         jsch.setKnownHosts(knownHosts.absolutePath)
-        val session = jsch.getSession(user, host, tunnel.adminPort ?: 22)
+        val session = jsch.getSession(user, host, port)
         session.setPassword(password)
         session.userInfo = PasswordInfo(password)
         session.setConfig("StrictHostKeyChecking", "ask")

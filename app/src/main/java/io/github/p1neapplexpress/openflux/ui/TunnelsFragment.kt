@@ -38,6 +38,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.github.g00fy2.quickie.QRResult
 import io.github.g00fy2.quickie.ScanQRCode
 import io.github.p1neapplexpress.openflux.R
@@ -337,7 +338,7 @@ class TunnelsFragment : BaseFragment() {
                 if (isActive) {
                     Toast.makeText(requireContext(), "Активный сервер нельзя удалить", Toast.LENGTH_SHORT).show()
                 } else {
-                    AlertDialog.Builder(requireContext())
+                    MaterialAlertDialogBuilder(requireContext())
                         .setTitle(R.string.delete_config_title)
                         .setMessage(tunnel.name)
                         .setNegativeButton(R.string.cancel, null)
@@ -492,7 +493,7 @@ class TunnelsFragment : BaseFragment() {
             return
         }
 
-        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete_config_title)
             .setMessage(R.string.delete_config_msg)
             .setNegativeButton(R.string.cancel, null)

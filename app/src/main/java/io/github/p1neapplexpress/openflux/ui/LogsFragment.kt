@@ -1,12 +1,15 @@
 package io.github.p1neapplexpress.openflux.ui
 
 import android.os.Bundle
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import io.github.p1neapplexpress.openflux.R
@@ -95,6 +98,12 @@ class LogsFragment : BaseFragment() {
                 success -> R.drawable.bg_status_success
                 else -> R.drawable.bg_glass_field
             })
+            setOnClickListener {
+                requireContext().getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("TERZAET log", text))
+                Toast.makeText(requireContext(), "Лог скопирован", Toast.LENGTH_SHORT).show()
+                animate().cancel()
+                animate().scaleX(0.98f).scaleY(0.98f).setDuration(80L).withEndAction { animate().scaleX(1f).scaleY(1f).setDuration(140L).start() }.start()
+            }
         }
         list.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = dp(10)

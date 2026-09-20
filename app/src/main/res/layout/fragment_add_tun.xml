@@ -97,6 +97,22 @@
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
+        <LinearLayout android:id="@+id/vdsAdminContainer" android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="16dp" android:visibility="gone">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Управление VDS" android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Данные сохраняются без SSH-пароля" android:textColor="@color/text_secondary" android:textSize="12sp" />
+            <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="IP или домен VDS">
+                <com.google.android.material.textfield.TextInputEditText android:id="@+id/adminHost" style="@style/GlassEditText" android:layout_width="match_parent" android:layout_height="58dp" android:inputType="textUri" android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Пользователь">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/adminUser" style="@style/GlassEditText" android:layout_width="match_parent" android:layout_height="58dp" android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="96dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:hint="Порт">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/adminPort" style="@style/GlassEditText" android:layout_width="match_parent" android:layout_height="58dp" android:inputType="number" android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </LinearLayout>
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/saveButton"
             android:layout_width="match_parent"

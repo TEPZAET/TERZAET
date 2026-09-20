@@ -18,6 +18,7 @@ import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.core.view.isVisible
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.UIKeyboardInteractive
@@ -68,7 +69,7 @@ class ServerInstallFragment : BaseFragment() {
         val encryptionContainer = view.findViewById<View>(R.id.serverEncryptionContainer)
         val copyKey = view.findViewById<View>(R.id.copyEncryptionKey)
         view.findViewById<TextInputLayout>(R.id.serverDocumentContainer).setEndIconOnClickListener {
-            AlertDialog.Builder(requireContext())
+            MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Как подготовить документ")
                 .setMessage("1. Откройте Яндекс Документы и создайте пустой документ.\n\n2. Нажмите «Поделиться» и разрешите просмотр по ссылке.\n\n3. Скопируйте публичную ссылку и вставьте её в это поле.\n\nНе используйте документ с личной информацией: TERZAET применяет его только как транспорт.")
                 .setPositiveButton("Понятно", null)
@@ -185,7 +186,7 @@ class ServerInstallFragment : BaseFragment() {
                     if (found.openFlux) add("OpenFlux: контейнер, служба и /opt/fluxglass")
                 }
                 val checked = BooleanArray(labels.size) { true }
-                AlertDialog.Builder(requireContext())
+                MaterialAlertDialogBuilder(requireContext())
                     .setTitle("На VDS найдена предыдущая установка")
                     .setMultiChoiceItems(labels.toTypedArray(), checked) { _, index, value -> checked[index] = value }
                     .setNeutralButton("Оставить и продолжить") { _, _ -> install(request) }

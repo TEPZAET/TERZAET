@@ -217,7 +217,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
             awaitService(TUN2SOCKS_TIMEOUT_MS, "TUN-302", "VPN-канал не перешёл в рабочее состояние") { it.isVpnRunning() }
                 ?.let { fail(it); return@launch }
 
-            _pingMs.value = verifiedLatency
+            _pingMs.value = null
             _active.value = TunnelState.Running(tunnel)
             startUptimeCounter()
             startPingCounter()
@@ -377,9 +377,16 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     private fun startPingCounter() {
         pingJob?.cancel()
         pingJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(8_000L)
             while (isActive) {
-                delay(60_000L)
-                _pingMs.value = runCatching { service?.measureDataPathLatency()?.takeIf { it >= 0L } }.getOrNull()
+                val samples = buildList {
+                    repeat(3) {
+                        runCatching { service?.measureDataPathLatency()?.takeIf { value -> value in 1..5_000 } }.getOrNull()?.let(::add)
+                        delay(900L)
+                    }
+                }.sorted()
+                _pingMs.value = samples.getOrNull(samples.size / 2)
+                delay(45_000L)
             }
         }
     }

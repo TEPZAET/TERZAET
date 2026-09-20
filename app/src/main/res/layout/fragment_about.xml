@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/bg_screen_ambient" android:gravity="center_horizontal" android:orientation="vertical" android:padding="24dp" android:paddingTop="64dp">
+    <ImageView android:layout_width="104dp" android:layout_height="104dp" android:src="@drawable/terzaet_logo" android:contentDescription="@string/app_name" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="TERZAET" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
+    <TextView android:id="@+id/versionText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Версия" android:textColor="@color/text_secondary" android:textSize="13sp" />
+    <TextView android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:background="@drawable/glass_panel" android:padding="22dp"
+        android:text="TERZAET — независимый форк OpenFlux." android:textColor="@color/text_primary" android:textSize="14sp" android:lineSpacingExtra="4dp" />
+</LinearLayout>

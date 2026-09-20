@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TERZAET</string>
+    <string name="version" translatable="false">1.1.0</string>
+
+    <string name="channel_name">VPN Service</string>
+    <string name="notify_title">TERZAET running</string>
+    <string name="notify_msg">Tunnel is active</string>
+
+    <string name="prof_default">Default</string>
+
+    <string name="yandex_docs_backend">Yandex.Docs backend</string>
+    <string name="vyandex_backend">Yandex.Docs backend (Volga)</string>
+    <string name="max_messenger_backend">MAX Messenger backend</string>
+    <string name="cupsonline_backend">Cups.online backend</string>
+    <string name="mailru_backend">Mail.ru Docs backend</string>
+
+    <string name="mailru_url">Public link (cloud.mail.ru/public/…)</string>
+    <string name="cupsonline_rooms">Room list from the exit node</string>
+    <string name="cupsonline_rooms_helper">The base64 string the exit node prints on start</string>
+    <string name="url_must_match">Must match the exit node\'s --url exactly</string>
+    <string name="encryption_key">Encryption key (AES-256-GCM)</string>
+    <string name="encryption_key_helper">Optional. At least 16 characters, same as the exit node\'s --encryption-key-file</string>
+    <string name="encryption_key_too_short">At least 16 characters</string>
+    <string name="cupsonline_encryption_warning">Encryption with cups.online does not work in current OpenFlux: the exit node derives the key from a different --url.</string>
+    <string name="legacy_codec">Legacy codec (LZ4)</string>
+    <string name="legacy_codec_off">Off: batched + zstd, the OpenFlux default</string>
+    <string name="legacy_codec_on">On: only for exit nodes started with --codec=legacy</string>
+    <string name="fields_required">Fill in the transport fields</string>
+
+    <string name="starting_transport">Starting transport…</string>
+    <string name="starting_tsocks">Starting tun2socks…</string>
+    <string name="connecting">Connecting…</string>
+    <string name="checking_connection">Checking connection…</string>
+    <string name="disconnecting">Disconnecting…</string>
+    <string name="running">Running</string>
+    <string name="stopped">Stopped</string>
+
+    <string name="vpn_permission_required">Allow VPN permission to start transport / tun2socks</string>
+    <string name="qr_scan_failed">QR code scan failed</string>
+    <string name="name_required">Enter a tunnel name</string>
+
+    <string name="add_tunnel">Add tunnel</string>
+    <string name="scan_qr">Scan QR</string>
+    <string name="enter_manually">Enter manually</string>
+    <string name="save">Save</string>
+    <string name="clear">CLEAR</string>
+    <string name="auto_scroll">AUTO-SCROLL</string>
+
+    <string name="select_transport">Transport</string>
+    <string name="debug_mode">Debug mode</string>
+    <string name="tunnel_name">Name</string>
+    <string name="document_url">Document URL</string>
+    <string name="max_token">MAX token</string>
+    <string name="max_uid">MAX user ID</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="tap_to_connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="switch_tunnel">Enter Manually</string>
+    <string name="add_tunnel_short">Add</string>
+    <string name="no_tunnel">No tunnel</string>
+    <string name="uptime_label">Connected for</string>
+    <string name="select_config">Configuration</string>
+    <string name="no_configs">No configurations</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="delete_config_title">Delete configuration?</string>
+    <string name="delete_config_msg">This will permanently remove the configuration.</string>
+    <string name="cancel">Cancel</string>
+    <string name="edit_config">Edit configuration</string>
+    <string name="cannot_delete_active">Stop the VPN first</string>
+    <string name="config_saved">Saved</string>
+    <string name="config_deleted">Deleted</string>
+    <string name="notify_action_stop">Disconnect</string>
+    <string name="notify_msg_idle">Idle</string>
+    <string name="notify_msg_connecting">Connecting…</string>
+    <string name="notify_msg_starting_transport">Starting transport…</string>
+    <string name="notify_msg_starting_tun2socks">Starting tun2socks…</string>
+    <string name="notify_msg_running">Tunnel is active</string>
+    <string name="notify_msg_error">Error</string>
+    <string name="notify_channel_desc">VPN service status</string>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_screen_ambient">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp" android:paddingTop="42dp" android:paddingBottom="34dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Внешний вид" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Настройте интерфейс под себя" android:textColor="@color/text_secondary" android:textSize="13sp" />
+
+        <LinearLayout android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="18dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Интенсивность видео" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
+            <SeekBar android:id="@+id/videoIntensity" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:max="80" android:progress="80" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Прозрачность стекла" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
+            <SeekBar android:id="@+id/glassTransparency" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:max="70" android:progress="42" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Размер текста" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
+            <SeekBar android:id="@+id/textScale" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:max="40" android:progress="15" />
+        </LinearLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/settingVideo" android:tag="glass" android:layout_width="match_parent" android:layout_height="64dp" android:layout_marginTop="12dp" android:background="@drawable/glass_panel" android:paddingHorizontal="18dp" android:text="Фоновая анимация" android:textColor="@color/text_primary" android:checked="true" app:useMaterialThemeColors="true" />
+        <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/settingMotion" android:tag="glass" android:layout_width="match_parent" android:layout_height="64dp" android:layout_marginTop="10dp" android:background="@drawable/glass_panel" android:paddingHorizontal="18dp" android:text="Анимации интерфейса" android:textColor="@color/text_primary" android:checked="true" app:useMaterialThemeColors="true" />
+        <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/settingEnergy" android:tag="glass" android:layout_width="match_parent" android:layout_height="64dp" android:layout_marginTop="10dp" android:background="@drawable/glass_panel" android:paddingHorizontal="18dp" android:text="Энергосберегающий режим" android:textColor="@color/text_primary" android:checked="false" app:useMaterialThemeColors="true" />
+        <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/settingHaptics" android:tag="glass" android:layout_width="match_parent" android:layout_height="64dp" android:layout_marginTop="10dp" android:background="@drawable/glass_panel" android:paddingHorizontal="18dp" android:text="Тактильный отклик" android:textColor="@color/text_primary" android:checked="true" app:useMaterialThemeColors="true" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

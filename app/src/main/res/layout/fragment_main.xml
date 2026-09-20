@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/bg_deep">
+    <androidx.viewpager2.widget.ViewPager2 android:id="@+id/view_pager" android:layout_width="0dp" android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toTopOf="@id/globalBottomNav"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+    <LinearLayout android:id="@+id/globalBottomNav" android:tag="glass" android:layout_width="0dp" android:layout_height="78dp"
+        android:layout_marginHorizontal="8dp" android:layout_marginBottom="8dp" android:background="@drawable/glass_panel"
+        android:elevation="12dp" android:gravity="center" android:orientation="horizontal" android:paddingHorizontal="7dp"
+        app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
+        <LinearLayout android:id="@+id/globalNavHome" android:layout_width="0dp" android:layout_height="62dp" android:layout_weight="1"
+            android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="23dp" android:layout_height="23dp" android:src="@drawable/ic_home" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Главная" android:textColor="#30353A" android:textSize="10sp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/globalNavServers" android:layout_width="0dp" android:layout_height="62dp" android:layout_weight="1"
+            android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="23dp" android:layout_height="23dp" android:src="@drawable/ic_tune" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Админ" android:textColor="#4D5358" android:textSize="10sp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/globalNavLogs" android:layout_width="0dp" android:layout_height="62dp" android:layout_weight="1"
+            android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="23dp" android:layout_height="23dp" android:src="@drawable/ic_logs_nav" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Журналы" android:textColor="#4D5358" android:textSize="10sp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/globalNavAbout" android:layout_width="0dp" android:layout_height="62dp" android:layout_weight="1"
+            android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="23dp" android:layout_height="23dp" android:src="@drawable/ic_profile" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="О приложении" android:textColor="#4D5358" android:textSize="9sp" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

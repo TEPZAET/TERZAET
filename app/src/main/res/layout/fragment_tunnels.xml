@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#E8EAEB">
+    <io.github.p1neapplexpress.openflux.ui.widget.CropVideoView android:id="@+id/transitionVideo"
+        android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="center" android:alpha="1" />
+    <ImageView android:id="@+id/videoPoster" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="#E8EAEB" android:scaleType="centerCrop" android:contentDescription="@null" />
+    <View android:layout_width="match_parent" android:layout_height="match_parent" android:background="#0FFFFFFF" />
+
+    <androidx.core.widget.NestedScrollView android:id="@+id/homeScroll" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:fillViewport="true" android:overScrollMode="never" android:clipToPadding="false">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+            android:orientation="vertical" android:gravity="center_horizontal" android:paddingTop="22dp" android:paddingBottom="64dp">
+
+            <FrameLayout android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginHorizontal="20dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center"
+                    android:text="TERZAET" android:textColor="#20252A" android:textSize="24sp" android:fontFamily="sans-serif-medium" />
+                <ImageView android:id="@+id/settingsIcon" android:layout_width="44dp" android:layout_height="44dp" android:layout_gravity="end|center_vertical"
+                    android:padding="10dp" android:src="@drawable/ic_tune" android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true" android:focusable="true" />
+            </FrameLayout>
+
+            <LinearLayout android:id="@+id/configSelector" android:tag="glass" android:layout_width="wrap_content" android:layout_height="46dp"
+                android:layout_marginTop="2dp" android:background="@drawable/status_pill" android:elevation="6dp"
+                android:gravity="center" android:orientation="horizontal" android:paddingHorizontal="15dp" android:clickable="true" android:focusable="true">
+                <View android:id="@+id/configDot" android:layout_width="22dp" android:layout_height="22dp" android:layout_marginEnd="10dp" android:background="@drawable/bg_dropdown_dot" />
+                <TextView android:id="@+id/tunnelName" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:maxWidth="210dp" android:maxLines="1" android:ellipsize="end" android:textColor="#24292E" android:textSize="14sp" android:textStyle="bold" tools:text="Auto · Germany" />
+                <ImageView android:id="@+id/chevron" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginStart="9dp"
+                    android:src="@drawable/ic_chevron_down" app:tint="#4E545A" />
+            </LinearLayout>
+            <TextView android:id="@+id/headerStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:text="@string/tap_to_connect" android:textColor="#4E545A" android:textSize="13sp" />
+
+            <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" android:minHeight="112dp" />
+
+            <LinearLayout android:tag="glass" android:layout_width="match_parent" android:layout_height="196dp" android:layout_marginHorizontal="16dp"
+                android:background="@drawable/glass_panel" android:elevation="7dp" android:orientation="horizontal" android:padding="14dp">
+                <LinearLayout android:id="@+id/connectButton" android:layout_width="126dp" android:layout_height="match_parent"
+                    android:background="@drawable/connect_square" android:elevation="6dp" android:gravity="center" android:orientation="vertical"
+                    android:clickable="true" android:focusable="true">
+                    <ImageView android:id="@+id/powerIcon" android:layout_width="48dp" android:layout_height="48dp" android:src="@drawable/ic_power" app:tint="#30363B" />
+                    <TextView android:id="@+id/connectLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp"
+                        android:text="@string/tap_to_connect" android:textColor="#252A2F" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+                <View android:layout_width="1dp" android:layout_height="match_parent" android:layout_marginHorizontal="14dp" android:background="#55FFFFFF" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+                        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Скорость" android:textColor="#3F454A" android:textSize="12sp" />
+                            <TextView android:id="@+id/speedValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="—" android:textColor="#252A2F" android:textSize="19sp" />
+                        </LinearLayout>
+                        <View android:layout_width="1dp" android:layout_height="match_parent" android:layout_marginVertical="8dp" android:background="#55FFFFFF" />
+                        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Пинг" android:textColor="#3F454A" android:textSize="12sp" />
+                            <TextView android:id="@+id/pingValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="—" android:textColor="#252A2F" android:textSize="19sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginHorizontal="6dp" android:background="#66FFFFFF" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:paddingHorizontal="12dp">
+                        <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_timer" />
+                        <TextView android:id="@+id/uptimeLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:layout_marginStart="9dp" android:text="@string/uptime_label" android:textColor="#3F454A" android:textSize="12sp" />
+                        <TextView android:id="@+id/uptimeText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="00:00" android:textColor="#20252A" android:textSize="17sp" android:fontFamily="monospace" android:alpha="0.35" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginHorizontal="16dp" android:layout_marginTop="12dp" android:orientation="horizontal">
+                <LinearLayout android:id="@+id/switchButton" android:tag="glass" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                    android:background="@drawable/glass_action" android:elevation="4dp" android:gravity="center" android:orientation="horizontal" android:clickable="true" android:focusable="true">
+                    <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_tune" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="10dp" android:text="Настроить" android:textColor="#292E33" android:textSize="14sp" />
+                </LinearLayout>
+                <Space android:layout_width="12dp" android:layout_height="1dp" />
+                <LinearLayout android:id="@+id/addButton" android:tag="glass" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                    android:background="@drawable/glass_action" android:elevation="4dp" android:gravity="center" android:orientation="horizontal" android:clickable="true" android:focusable="true">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_camera_scan" android:contentDescription="@string/scan_qr" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Снимок" android:textColor="#292E33" android:textSize="14sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/bottomBar" android:layout_width="match_parent" android:layout_height="82dp" android:layout_marginTop="12dp" android:visibility="gone"
+                android:background="@drawable/glass_panel" android:elevation="6dp" android:gravity="center" android:orientation="horizontal" android:paddingHorizontal="8dp">
+                <LinearLayout android:id="@+id/navHome" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:background="@drawable/nav_active_glass"
+                    android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_home" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Главная" android:textColor="#30353A" android:textSize="10sp" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/navServers" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_servers" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Серверы" android:textColor="#4D5358" android:textSize="10sp" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/navLogs" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_logs_nav" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Журналы" android:textColor="#4D5358" android:textSize="10sp" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/navProfile" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_profile" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Профиль" android:textColor="#4D5358" android:textSize="10sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <FrameLayout android:id="@+id/center" android:layout_width="1dp" android:layout_height="1dp" android:visibility="invisible">
+                <io.github.p1neapplexpress.openflux.ui.widget.AuroraView android:id="@+id/aurora" android:layout_width="1dp" android:layout_height="1dp" />
+                <io.github.p1neapplexpress.openflux.ui.widget.PulseRingsView android:id="@+id/pulseRings" android:layout_width="1dp" android:layout_height="1dp" />
+                <View android:id="@+id/ringOuter" android:layout_width="1dp" android:layout_height="1dp" /><View android:id="@+id/ringMid" android:layout_width="1dp" android:layout_height="1dp" />
+            </FrameLayout>
+            <TextView android:id="@+id/statusText" android:layout_width="1dp" android:layout_height="1dp" android:visibility="invisible" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <TextView android:id="@+id/serverSwipeHandle" android:layout_width="196dp" android:layout_height="46dp"
+        android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="8dp" android:background="@drawable/glass_action"
+        android:elevation="10dp" android:gravity="center" android:text="⌃  Серверы" android:textColor="#41474C" android:textSize="13sp"
+        android:textStyle="bold" android:clickable="true" android:focusable="true" />
+</FrameLayout>

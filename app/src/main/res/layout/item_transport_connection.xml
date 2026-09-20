@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/item_tunnel_background"
+    android:layout_marginHorizontal="12dp"
+    android:layout_marginVertical="8dp"
+    android:elevation="4dp"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:stateListAnimator="@animator/item_elevation"
+    android:clickable="true"
+    android:focusable="true">
+    <View
+        android:id="@+id/item_status_dot"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:background="@drawable/status_dot_animated"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/item_conn_name" />
+
+    <TextView
+        android:id="@+id/item_conn_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:transitionName="tunnel_name"
+        app:layout_constraintEnd_toStartOf="@id/item_conn_enabled"
+        app:layout_constraintStart_toEndOf="@id/item_status_dot"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Connection name" />
+
+    <TextView
+        android:id="@+id/item_conn_state"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="4dp"
+        android:fontFamily="sans-serif-light"
+        android:textSize="12sp"
+        android:alpha="0.9"
+        android:ellipsize="end"
+        android:maxLines="1"
+        app:layout_constraintEnd_toStartOf="@id/item_conn_enabled"
+        app:layout_constraintStart_toEndOf="@id/item_status_dot"
+        app:layout_constraintTop_toBottomOf="@id/item_conn_name"
+        tools:text="Running" />
+
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/item_conn_enabled"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:scaleX="0.85"
+        android:scaleY="0.85"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:thumbIconTint="@android:color/transparent"
+        app:thumbTint="@color/switch_thumb_selector"
+        app:trackDecorationTint="@android:color/transparent"
+        app:trackTint="@color/switch_track_selector" />
+    <View
+        android:id="@+id/item_ripple_overlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/ripple_effect"
+        android:clickable="false"
+        android:focusable="false"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

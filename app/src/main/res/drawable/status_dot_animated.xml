@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/state_running"
+        android:state_selected="true">
+        <shape android:shape="oval">
+            <solid android:color="#00ff88" />
+            <size
+                android:width="8dp"
+                android:height="8dp" />
+        </shape>
+    </item>
+    <item
+        android:id="@+id/state_connecting">
+        <shape android:shape="oval">
+            <solid android:color="#ffaa00" />
+            <size
+                android:width="8dp"
+                android:height="8dp" />
+        </shape>
+    </item>
+    <item
+        android:id="@+id/state_error">
+        <shape android:shape="oval">
+            <solid android:color="#ff4444" />
+            <size
+                android:width="8dp"
+                android:height="8dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#444444" />
+            <size
+                android:width="8dp"
+                android:height="8dp" />
+        </shape>
+    </item>
+    <transition
+        android:fromId="@id/state_running"
+        android:toId="@id/state_connecting">
+        <animation-list>
+            <item android:duration="300">
+                <shape android:shape="oval">
+                    <solid android:color="#ffaa00" />
+                </shape>
+            </item>
+        </animation-list>
+    </transition>
+    <transition
+        android:fromId="@id/state_connecting"
+        android:toId="@id/state_running">
+        <animation-list>
+            <item android:duration="300">
+                <shape android:shape="oval">
+                    <solid android:color="#00ff88" />
+                </shape>
+            </item>
+        </animation-list>
+    </transition>
+</animated-selector>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">TERZAET</string>
+
+    <string name="channel_name">VPN-сервис</string>
+    <string name="notify_title">TERZAET работает</string>
+    <string name="notify_msg">Туннель активен</string>
+
+    <string name="prof_default">По умолчанию</string>
+
+    <string name="yandex_docs_backend">Бэкенд Yandex.Docs</string>
+    <string name="vyandex_backend">Бэкенд Yandex.Docs (Volga)</string>
+    <string name="max_messenger_backend">Бэкенд MAX Messenger</string>
+    <string name="cupsonline_backend">Бэкенд Cups.online</string>
+    <string name="mailru_backend">Бэкенд Mail.ru Docs</string>
+
+    <string name="mailru_url">Публичная ссылка (cloud.mail.ru/public/…)</string>
+    <string name="cupsonline_rooms">Список комнат от exit-ноды</string>
+    <string name="cupsonline_rooms_helper">Base64-строка, которую exit-нода печатает при запуске</string>
+    <string name="url_must_match">Должен совпадать с --url exit-ноды символ в символ</string>
+    <string name="encryption_key">Ключ шифрования (AES-256-GCM)</string>
+    <string name="encryption_key_helper">Необязательно. Не короче 16 символов, тот же, что в --encryption-key-file exit-ноды</string>
+    <string name="encryption_key_too_short">Минимум 16 символов</string>
+    <string name="cupsonline_encryption_warning">Шифрование с cups.online в текущем OpenFlux не работает: exit-нода выводит ключ из другого --url.</string>
+    <string name="legacy_codec">Старый кодек (LZ4)</string>
+    <string name="legacy_codec_off">Выкл: batched + zstd, как в OpenFlux по умолчанию</string>
+    <string name="legacy_codec_on">Вкл: только для exit-нод с --codec=legacy</string>
+    <string name="fields_required">Заполните поля транспорта</string>
+
+    <string name="starting_transport">Запуск транспорта…</string>
+    <string name="starting_tsocks">Запуск tun2socks…</string>
+    <string name="connecting">Подключение…</string>
+    <string name="checking_connection">Проверка соединения…</string>
+    <string name="disconnecting">Отключение…</string>
+    <string name="running">Работает</string>
+    <string name="stopped">Остановлено</string>
+
+    <string name="vpn_permission_required">Разрешите VPN для запуска транспорта и tun2socks</string>
+    <string name="qr_scan_failed">Не удалось отсканировать QR-код</string>
+    <string name="name_required">Введите имя туннеля</string>
+
+    <string name="add_tunnel">Добавить туннель</string>
+    <string name="scan_qr">Снимок QR-кода</string>
+    <string name="enter_manually">Ввести руками</string>
+    <string name="save">Сохранить</string>
+    <string name="clear">ОЧИСТИТЬ</string>
+    <string name="auto_scroll">АВТОПРОКРУТКА</string>
+
+    <string name="select_transport">Транспорт</string>
+    <string name="debug_mode">Режим отладки</string>
+    <string name="tunnel_name">Имя</string>
+    <string name="document_url">URL документа</string>
+    <string name="max_token">MAX токен</string>
+    <string name="max_uid">MAX user ID</string>
+    <string name="on">Вкл</string>
+    <string name="off">Выкл</string>
+    <string name="tap_to_connect">Подключить</string>
+    <string name="disconnect">Отключить</string>
+
+    <string name="switch_tunnel">Ввести вручную</string>
+    <string name="add_tunnel_short">Добавить</string>
+    <string name="no_tunnel">Нет туннеля</string>
+    <string name="uptime_label">Подключено</string>
+
+    <string name="select_config">Конфигурация</string>
+    <string name="no_configs">Нет конфигураций</string>
+    <string name="action_edit">Изменить</string>
+    <string name="action_delete">Удалить</string>
+    <string name="delete_config_title">Удалить конфигурацию?</string>
+    <string name="delete_config_msg">Конфигурация будет удалена безвозвратно.</string>
+    <string name="cancel">Отмена</string>
+    <string name="edit_config">Редактирование конфигурации</string>
+    <string name="cannot_delete_active">Сначала остановите VPN</string>
+    <string name="config_saved">Сохранено</string>
+    <string name="config_deleted">Удалено</string>
+
+    <string name="notify_action_stop">Отключить</string>
+    <string name="notify_msg_idle">Простой</string>
+    <string name="notify_msg_connecting">Подключение…</string>
+    <string name="notify_msg_starting_transport">Запуск транспорта…</string>
+    <string name="notify_msg_starting_tun2socks">Запуск tun2socks…</string>
+    <string name="notify_msg_running">Туннель активен</string>
+    <string name="notify_msg_error">Ошибка</string>
+    <string name="notify_channel_desc">Статус VPN-сервиса</string>
+</resources>

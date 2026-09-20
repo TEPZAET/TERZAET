@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="toolbar_color">#00000000</color>
+    <color name="bg_deep">#F1F2F3</color>
+    <color name="bg_card">#CCFFFFFF</color>
+    <color name="bg_card_stroke">#B8FFFFFF</color>
+    <color name="text_primary">#303236</color>
+    <color name="text_secondary">#6F7379</color>
+    <color name="text_tertiary">#9A9DA2</color>
+    <color name="state_idle">#73777D</color>
+    <color name="state_connecting">#686C72</color>
+    <color name="state_running">#3F4348</color>
+    <color name="state_error">#5D5151</color>
+    <color name="accent_blue">#595D63</color>
+    <color name="log_green">#555A5F</color>
+    <color name="log_gray">#85898E</color>
+    <color name="log_red">#685858</color>
+    <color name="log_yellow">#777167</color>
+    <color name="status_dot_active">#50555A</color>
+    <color name="status_dot_idle">#A4A7AA</color>
+    <color name="status_dot_error">#756565</color>
+    <color name="color_background">#F1F2F3</color>
+    <color name="colorEditTextBg">#CCFFFFFF</color>
+    <color name="colorBorder">#D7D9DC</color>
+    <color name="colorSuccess">#50555A</color>
+    <color name="colorError">#756565</color>
+    <color name="colorPrimary">#4A4E53</color>
+    <color name="colorPrimaryDark">#ECEDEF</color>
+    <color name="colorAccent">#595D63</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorSurface">#F8F8F9</color>
+    <color name="colorOnSurface">#303236</color>
+    <color name="colorTextPrimary">#303236</color>
+    <color name="colorTextSecondary">#6F7379</color>
+    <color name="ic_launcher_background">#E8E9EA</color>
+</resources>

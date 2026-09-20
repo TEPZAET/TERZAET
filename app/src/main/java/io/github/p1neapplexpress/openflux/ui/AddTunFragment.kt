@@ -127,7 +127,7 @@ class AddTunFragment : BaseFragment() {
 
     private fun requestVdsRemoval(host: String, user: String, port: Int) {
         val content = layoutInflater.inflate(R.layout.dialog_ssh_password, null)
-        content.findViewById<TextView>(R.id.passwordHint).text = "Введите SSH-пароль для $user@$host. Пароль используется один раз и не сохраняется."
+        content.findViewById<TextView>(R.id.passwordHint).text = "Введите пароль для $user@$host. Он используется один раз и не сохраняется."
         val password = content.findViewById<EditText>(R.id.sshPassword)
         val progress = content.findViewById<View>(R.id.removalProgress)
         val progressText = content.findViewById<TextView>(R.id.removalStatus)

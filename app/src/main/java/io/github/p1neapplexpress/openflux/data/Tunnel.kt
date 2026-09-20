@@ -8,6 +8,8 @@ data class Tunnel(
     val name: String,
     val transportType: String,
     val transportConnPayload: List<String>,
-    /** Shared secret for OpenFlux's AES-256-GCM transport encryption; null means unencrypted. */
     val encryptionKey: String? = null,
+    val adminHost: String? = null,
+    val adminUser: String? = null,
+    val adminPort: Int? = null,
 )

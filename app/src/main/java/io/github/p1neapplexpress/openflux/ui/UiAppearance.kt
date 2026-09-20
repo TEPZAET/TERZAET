@@ -1,6 +1,5 @@
 package io.github.p1neapplexpress.openflux.ui
 
-import android.content.Context
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -8,15 +7,12 @@ import android.widget.TextView
 
 object UiAppearance {
     fun apply(root: View) {
-        val prefs = root.context.getSharedPreferences("ui_settings", Context.MODE_PRIVATE)
-        val textScale = prefs.getInt("text_scale", 100) / 100f
-        val glassAlpha = (prefs.getInt("glass_alpha", 72) * 2.55f).toInt().coerceIn(30, 255)
+        val textScale = 1f
+        val glassAlpha = (72 * 2.55f).toInt()
         walk(root, textScale, glassAlpha)
-        if (prefs.getBoolean("motion", true)) {
-            root.alpha = 0f
-            root.translationY = 12f * root.resources.displayMetrics.density
-            root.animate().alpha(1f).translationY(0f).setDuration(280L).start()
-        }
+        root.alpha = 0f
+        root.translationY = 12f * root.resources.displayMetrics.density
+        root.animate().alpha(1f).translationY(0f).setDuration(280L).start()
     }
 
     private fun walk(view: View, textScale: Float, glassAlpha: Int) {

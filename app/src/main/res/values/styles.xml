@@ -34,4 +34,19 @@
         <item name="strokeWidth">1dp</item>
         <item name="android:foreground">?attr/selectableItemBackground</item>
     </style>
+
+    <style name="ShapeAppearance.TERZAET.Dialog" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerSize">28dp</item>
+    </style>
+
+    <style name="ThemeOverlay.TERZAET.AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.TERZAET.Dialog</item>
+        <item name="colorSurface">#F2FFFFFF</item>
+        <item name="android:windowAnimationStyle">@style/TERZAETDialogAnimation</item>
+    </style>
+
+    <style name="TERZAETDialogAnimation" parent="@android:style/Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/dialog_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_exit</item>
+    </style>
 </resources>

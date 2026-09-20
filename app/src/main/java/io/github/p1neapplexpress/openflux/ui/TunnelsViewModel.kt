@@ -14,7 +14,6 @@ import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelRepository
 import io.github.p1neapplexpress.openflux.data.TunnelState
 import io.github.p1neapplexpress.openflux.data.TunnelViewType
-import io.github.p1neapplexpress.openflux.data.TunnelPayload
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import io.github.p1neapplexpress.openflux.event.EventBus
 import io.github.p1neapplexpress.openflux.service.SocksVpnService
@@ -30,10 +29,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-import java.net.InetAddress
-import java.net.HttpURLConnection
-import java.net.URL
 
 class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -358,40 +353,6 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
-    suspend fun diagnose(): DiagnosticResult {
-        val s = service
-        val tunnelReady = runCatching { s?.isVpnRunning() == true }.getOrDefault(false)
-        val latency = runCatching { s?.measureDataPathLatency()?.takeIf { it >= 0L } }.getOrNull()
-        val dnsReady = withTimeoutOrNull(5_000L) {
-            runCatching { InetAddress.getByName("disk.yandex.ru").hostAddress != null }.getOrDefault(false)
-        } ?: false
-        return DiagnosticResult(
-            tunnelReady = tunnelReady,
-            serverReady = latency != null,
-            dnsReady = dnsReady,
-            latencyMs = latency,
-        )
-    }
-
-    suspend fun checkTunnel(tunnel: Tunnel): ConfigCheck {
-        val url = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url
-        if (!url.startsWith("https://")) return ConfigCheck(false, "Ссылка на документ не найдена")
-        return withTimeoutOrNull(12_000L) {
-            runCatching {
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.instanceFollowRedirects = true
-                connection.connectTimeout = 8_000
-                connection.readTimeout = 8_000
-                connection.requestMethod = "GET"
-                connection.setRequestProperty("Range", "bytes=0-0")
-                val code = connection.responseCode
-                connection.disconnect()
-                if (code in 200..399) ConfigCheck(true, "Документ доступен")
-                else ConfigCheck(false, "Документ вернул код $code")
-            }.getOrElse { ConfigCheck(false, "Документ недоступен") }
-        } ?: ConfigCheck(false, "Проверка заняла слишком много времени")
-    }
-
     private fun startUptimeCounter() {
         uptimeJob?.cancel()
         _uptimeSeconds.value = 0L
@@ -430,12 +391,3 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         try { getApplication<Application>().unbindService(connection) } catch (_: Exception) {}
     }
 }
-
-data class DiagnosticResult(
-    val tunnelReady: Boolean,
-    val serverReady: Boolean,
-    val dnsReady: Boolean,
-    val latencyMs: Long?,
-)
-
-data class ConfigCheck(val ready: Boolean, val message: String)

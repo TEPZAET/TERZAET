@@ -107,5 +107,9 @@
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
             app:cornerRadius="20dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/removeFromVdsButton"
+            android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
+            android:text="Удалить TERZAET с VDS" android:textAllCaps="false" android:textColor="@color/state_error"
+            android:backgroundTint="#CCFFFFFF" android:visibility="gone" app:cornerRadius="20dp" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

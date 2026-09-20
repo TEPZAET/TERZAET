@@ -72,6 +72,7 @@ class VpnNotificationManager(private val service: Service) {
     }
 
     fun showRecoverySuccess() {
+        if (!service.getSharedPreferences("ui_settings", 0).getBoolean("recovery_notifications", true)) return
         createChannel()
         val mgr = service.getSystemService(NotificationManager::class.java) ?: return
         val notification = NotificationCompat.Builder(service, RECOVERY_CHANNEL_ID)

@@ -67,9 +67,5 @@
             android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="16dp"
             android:text="Установить и добавить" android:textAllCaps="false" android:textColor="#FFFFFF"
             android:backgroundTint="#383D42" app:cornerRadius="20dp" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/removeServerButton"
-            android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="10dp"
-            android:text="Удалить TERZAET с VDS" android:textAllCaps="false" android:textColor="@color/state_error"
-            android:backgroundTint="#CCFFFFFF" app:cornerRadius="20dp" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

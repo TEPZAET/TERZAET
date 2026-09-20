@@ -28,12 +28,12 @@
     <string name="legacy_codec_on">Вкл: только для exit-нод с --codec=legacy</string>
     <string name="fields_required">Заполните поля транспорта</string>
 
-    <string name="starting_transport">Запуск транспорта…</string>
-    <string name="starting_tsocks">Запуск tun2socks…</string>
-    <string name="connecting">Подключение…</string>
-    <string name="checking_connection">Проверка соединения…</string>
-    <string name="disconnecting">Отключение…</string>
-    <string name="running">Работает</string>
+    <string name="starting_transport">Связываемся с сервером…</string>
+    <string name="starting_tsocks">Подготавливаем защищённый канал…</string>
+    <string name="connecting">Запускаем защиту…</string>
+    <string name="checking_connection">Проверяем передачу данных…</string>
+    <string name="disconnecting">Завершаем соединение…</string>
+    <string name="running">Интернет защищён</string>
     <string name="stopped">Остановлено</string>
 
     <string name="vpn_permission_required">Разрешите VPN для запуска транспорта и tun2socks</string>

@@ -114,10 +114,10 @@ class TunnelsFragment : BaseFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val uiPrefs = requireContext().getSharedPreferences("ui_settings", 0)
-        videoEnabled = uiPrefs.getBoolean("video", true)
-        hapticsEnabled = uiPrefs.getBoolean("haptics", true)
-        motionEnabled = uiPrefs.getBoolean("motion", true)
-        energySaving = uiPrefs.getBoolean("energy", false)
+        videoEnabled = true
+        hapticsEnabled = true
+        motionEnabled = true
+        energySaving = false
         videoAlpha = uiPrefs.getInt("video_intensity", 100).coerceIn(20, 100) / 100f
 
         aurora = view.findViewById(R.id.aurora)
@@ -214,7 +214,7 @@ class TunnelsFragment : BaseFragment() {
         }
         view.findViewById<View>(R.id.addButton).setOnClickListener {
             animatePress(it)
-            showDiagnostics()
+            qrScanner.launch(null)
         }
         val serverHandle = view.findViewById<View>(R.id.serverSwipeHandle)
         val serverGestures = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
@@ -268,7 +268,7 @@ class TunnelsFragment : BaseFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { vm.active.collect { applyState(it) } }
                 launch { vm.uptimeSeconds.collect { renderUptime(it) } }
-                launch { vm.pingMs.collect { pingValue.text = it?.let { value -> "$value мс" } ?: "—" } }
+                launch { vm.pingMs.collect { value -> pingValue.text = if (vm.active.value is TunnelState.Running && value != null) "$value мс" else "—" } }
                 launch { vm.selected.collect { renderSelected(it) } }
             }
         }
@@ -282,28 +282,6 @@ class TunnelsFragment : BaseFragment() {
                 if (tunnel != null) R.color.state_idle else R.color.state_error
             )
         )
-    }
-
-    private fun showDiagnostics() {
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Проверка соединения")
-            .setMessage("Проверяем туннель, сервер и DNS…")
-            .setNegativeButton(R.string.cancel, null)
-            .create()
-        dialog.show()
-        viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val result = vm.diagnose()
-            launch(kotlinx.coroutines.Dispatchers.Main) {
-                if (!isAdded || !dialog.isShowing) return@launch
-                fun state(ok: Boolean) = if (ok) "Готово" else "Нет ответа"
-                dialog.setMessage(
-                    "Туннель · ${state(result.tunnelReady)}\n" +
-                        "Сервер · ${state(result.serverReady)}${result.latencyMs?.let { " · $it мс" }.orEmpty()}\n" +
-                        "DNS · ${state(result.dnsReady)}"
-                )
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Закрыть"
-            }
-        }
     }
 
     private fun showServerSheet() {
@@ -345,7 +323,6 @@ class TunnelsFragment : BaseFragment() {
             }
             val edit = row.findViewById<ImageButton>(R.id.serverEdit)
             val delete = row.findViewById<ImageButton>(R.id.serverDelete)
-            row.findViewById<ImageButton>(R.id.serverCheck).setOnClickListener { showTunnelCheck(tunnel) }
             edit.alpha = if (isActive) 0.28f else 1f
             delete.alpha = if (isActive) 0.28f else 1f
             edit.setOnClickListener {
@@ -380,23 +357,6 @@ class TunnelsFragment : BaseFragment() {
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(6) })
         dialog.setContentView(content)
         dialog.show()
-    }
-
-    private fun showTunnelCheck(tunnel: Tunnel) {
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle(tunnel.name)
-            .setMessage("Проверяем документ…")
-            .setNegativeButton(R.string.cancel, null)
-            .create()
-        dialog.show()
-        viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val result = vm.checkTunnel(tunnel)
-            launch(kotlinx.coroutines.Dispatchers.Main) {
-                if (!isAdded || !dialog.isShowing) return@launch
-                dialog.setMessage(if (result.ready) "Готово · ${result.message}" else "Нет ответа · ${result.message}")
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Закрыть"
-            }
-        }
     }
 
     
@@ -572,6 +532,7 @@ class TunnelsFragment : BaseFragment() {
             is TunnelState.StartingTransport,
             is TunnelState.StartingTun2Socks,
             is TunnelState.Checking -> {
+                stopMetrics()
                 loopBackgroundVideo()
                 val label = when (state) {
                     is TunnelState.Connecting -> getString(R.string.connecting)
@@ -580,8 +541,8 @@ class TunnelsFragment : BaseFragment() {
                     is TunnelState.Checking -> getString(R.string.checking_connection)
                 }
                 statusText.text = label
-                headerStatus.text = getString(R.string.connecting)
-                connectLabel.text = getString(R.string.connecting)
+                headerStatus.text = label
+                connectLabel.text = "Подождите…"
                 statusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                 crossFadeStatus()
                 aurora.setIntensity(0f)
@@ -642,6 +603,7 @@ class TunnelsFragment : BaseFragment() {
 
             is TunnelState.Running -> {
                 startMetrics()
+                pingValue.text = vm.pingMs.value?.let { "$it мс" } ?: "—"
                 finishBackgroundVideoAndHold()
                 statusText.text = getString(R.string.running)
                 headerStatus.text = getString(R.string.running)

@@ -35,6 +35,8 @@ import java.io.ByteArrayOutputStream
 import io.github.p1neapplexpress.openflux.data.EncryptionKey
 import kotlin.random.Random
 import java.security.SecureRandom
+import java.net.HttpURLConnection
+import java.net.URL
 
 class ServerInstallFragment : BaseFragment() {
 
@@ -65,7 +67,6 @@ class ServerInstallFragment : BaseFragment() {
         val encryptionSwitch = view.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch)
         val encryptionContainer = view.findViewById<View>(R.id.serverEncryptionContainer)
         val copyKey = view.findViewById<View>(R.id.copyEncryptionKey)
-        val removeServer = view.findViewById<View>(R.id.removeServerButton)
         view.findViewById<TextInputLayout>(R.id.serverDocumentContainer).setEndIconOnClickListener {
             AlertDialog.Builder(requireContext())
                 .setTitle("Как подготовить документ")
@@ -107,27 +108,6 @@ class ServerInstallFragment : BaseFragment() {
             password.text.clear()
             inspectThenInstall(request)
         }
-        removeServer.setOnClickListener {
-            val request = InstallRequest(
-                name = name.text.toString().trim().ifBlank { "TERZAET" },
-                host = host.text.toString().trim(),
-                user = user.text.toString().trim(),
-                port = port.text.toString().toIntOrNull() ?: 22,
-                password = password.text.toString(),
-                document = document.text.toString().trim().ifBlank { "https://disk.yandex.ru/" },
-                encryptionKey = "",
-            )
-            if (request.host.isBlank() || request.user.isBlank() || request.password.isBlank()) {
-                status.text = "Для удаления введите IP, пользователя и SSH-пароль"
-                return@setOnClickListener
-            }
-            AlertDialog.Builder(requireContext())
-                .setTitle("Удалить TERZAET с VDS?")
-                .setMessage("Будут удалены только контейнер и файлы TERZAET. Другие VPN и сервисы не затрагиваются.")
-                .setNegativeButton(R.string.cancel, null)
-                .setPositiveButton(R.string.action_delete) { _, _ -> removeFromServer(request) }
-                .show()
-        }
     }
 
     private fun install(request: InstallRequest) {
@@ -160,6 +140,9 @@ class ServerInstallFragment : BaseFragment() {
                     transportType = transport.name,
                     transportConnPayload = payload,
                     encryptionKey = request.encryptionKey.takeIf { it.isNotBlank() }?.let(EncryptionKey::normalize),
+                    adminHost = request.host,
+                    adminUser = request.user,
+                    adminPort = request.port,
                 )
                 vm.addTunnel(tunnel)
                 vm.selectTunnel(tunnel)
@@ -180,6 +163,7 @@ class ServerInstallFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
+                    verifyDocument(request.document)
                     val check = preflight(request).getOrThrow()
                     val found = detectExisting(request).getOrThrow()
                     check to found
@@ -215,6 +199,19 @@ class ServerInstallFragment : BaseFragment() {
                     .show()
             }
         }
+    }
+
+    private fun verifyDocument(value: String) {
+        val connection = URL(value).openConnection() as HttpURLConnection
+        connection.instanceFollowRedirects = true
+        connection.connectTimeout = 10_000
+        connection.readTimeout = 10_000
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("Range", "bytes=0-1024")
+        val code = connection.responseCode
+        val finalUrl = connection.url.toString().lowercase()
+        connection.disconnect()
+        if (code !in 200..399 || "passport.yandex" in finalUrl || "auth" in finalUrl) error("DOCUMENT_PRIVATE")
     }
 
     private fun preflight(request: InstallRequest): Result<Preflight> = runCatching {
@@ -300,47 +297,6 @@ class ServerInstallFragment : BaseFragment() {
         session.disconnect()
         if (code != 0) error("Команда VDS завершилась с кодом $code")
         return response
-    }
-
-    private fun removeFromServer(request: InstallRequest) {
-        button.isEnabled = false
-        spinner.visibility = View.VISIBLE
-        status.text = "Удаление TERZAET…"
-        viewLifecycleOwner.lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) { runRemoval(request) }
-            spinner.visibility = View.GONE
-            button.isEnabled = true
-            result.onSuccess {
-                statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_success)
-                status.text = "TERZAET удалён с VDS"
-            }.onFailure {
-                statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
-                status.text = friendlyError(it)
-            }
-        }
-    }
-
-    private fun runRemoval(request: InstallRequest): Result<Unit> = runCatching {
-        val jsch = JSch()
-        val knownHosts = File(requireContext().filesDir, "ssh_known_hosts")
-        if (!knownHosts.exists()) knownHosts.createNewFile()
-        jsch.setKnownHosts(knownHosts.absolutePath)
-        val session = jsch.getSession(request.user, request.host, request.port)
-        session.setPassword(request.password)
-        session.userInfo = FirstUseInfo(request.password)
-        session.setConfig("StrictHostKeyChecking", "ask")
-        session.setConfig("PreferredAuthentications", "password,keyboard-interactive")
-        session.connect(15_000)
-        val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
-        channel.setCommand("docker rm -f terzaet-yandex fluxglass-yandex >/dev/null 2>&1 || true; rm -rf /opt/terzaet /opt/fluxglass; printf TERZAET_REMOVED")
-        val output = channel.inputStream
-        channel.connect(15_000)
-        val response = output.bufferedReader().readText()
-        while (!channel.isClosed) Thread.sleep(100L)
-        val code = channel.exitStatus
-        channel.disconnect()
-        session.disconnect()
-        if (code != 0 || !response.contains("TERZAET_REMOVED")) error("Не удалось удалить серверную часть")
     }
 
     private fun generateKey(): String {

@@ -606,7 +606,7 @@ class TunnelsFragment : BaseFragment() {
 
             is TunnelState.Unavailable -> {
                 stopMetrics()
-                statusText.text = "Сервер не отвечает. Проверьте интернет или выберите другой сервер."
+                statusText.text = "Сервер не отвечает. Проверьте интернет, состояние и оплату VDS."
                 headerStatus.text = "Сервер не отвечает · выберите другой"
                 connectLabel.text = "Повторить"
                 statusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.state_error))

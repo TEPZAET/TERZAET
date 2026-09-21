@@ -142,7 +142,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startTunnel(tunnel: Tunnel) {
         val running = _active.value
-        if (running is TunnelState.Running && running.tunnel == tunnel) return
+        if (running.isActive && running.tunnel?.id == tunnel.id) return
         if (running.isActive) stop()
         val pendingTeardown = teardownJob
 
@@ -196,17 +196,20 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
 
             _active.value = TunnelState.Checking(tunnel)
             var verifiedLatency = -1L
-            for (attempt in 0..4) {
+            for (attempt in 0..2) {
                 verifiedLatency = runCatching { service?.measureDataPathLatency() ?: -1L }.getOrDefault(-1L)
                 if (verifiedLatency >= 0L) break
-                if (attempt < 4) delay(1_500L)
-            }
-            if (verifiedLatency < 0L) {
-                fail("CHK-401", "Сервер принял подключение, но ещё не передаёт данные. Проверьте документ и повторите попытку")
-                return@launch
+                if (attempt < 2) delay(1_000L)
             }
 
-            Logx.i(TAG, "data path verified in ${verifiedLatency}ms, starting tun2socks")
+            if (verifiedLatency >= 0L) {
+                Logx.i(TAG, "data path verified in ${verifiedLatency}ms, starting tun2socks")
+            } else {
+                Logx.w(TAG, "server data path is unavailable")
+                EventBus.dispatch(AppEvent.LogMessage("Сервер не отвечает"))
+                teardown(TunnelState.Unavailable(tunnel))
+                return@launch
+            }
             _active.value = TunnelState.StartingTun2Socks(tunnel)
             try {
                 service?.startTun2Socks()
@@ -320,7 +323,8 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun reconcileSystemState() {
-        if (_active.value is TunnelState.Idle) return
+        val state = _active.value
+        if (state !is TunnelState.Running && state !is TunnelState.Restoring) return
         val app = getApplication<Application>()
         val runtimeActive = app
             .getSharedPreferences("vpn_runtime", Context.MODE_PRIVATE)

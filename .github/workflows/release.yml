@@ -20,12 +20,12 @@ jobs:
           cache: gradle
       - run: chmod +x gradlew
       - run: ./gradlew :app:assembleDebug
-      - run: mv app/build/outputs/apk/debug/app-debug.apk TERZAET-1.0.3.apk
+      - run: mv app/build/outputs/apk/debug/app-debug.apk "TERZAET-${GITHUB_REF_NAME#v}.apk"
       - uses: softprops/action-gh-release@v2
         with:
-          name: v1.0.3
+          name: ${{ github.ref_name }}
           body: |-
             Визуал и стабильность🤍
             TERZAET — независимый неофициальный форк OpenFluxAndroid/OpenFlux.
-          files: TERZAET-1.0.3.apk
+          files: TERZAET-1.0.4.apk
           make_latest: true

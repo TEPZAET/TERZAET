@@ -19,12 +19,11 @@ import (
 	"openflux/utils"
 )
 
-// ExitMode выбирает, как выходная нода общается с интернетом.
 type ExitMode int
 
 const (
-	ExitModeL3 ExitMode = iota // L3: SNAT/DNAT без gVisor (Linux)
-	ExitModeL4                 // L4: gVisor TCP-терминация + net.Dial (работает везде)
+	ExitModeL3 ExitMode = iota
+	ExitModeL4
 )
 
 func (m ExitMode) String() string {
@@ -36,11 +35,9 @@ func (m ExitMode) String() string {
 	}
 }
 
-// ParseExitMode разбирает строку из флага --mode.
 func ParseExitMode(s string) (ExitMode, error) {
 	switch s {
 	case "", "l4", "proxy":
-		// "proxy" is a deprecated alias kept for one release.
 		return ExitModeL4, nil
 	case "l3":
 		return ExitModeL3, nil
@@ -59,14 +56,12 @@ type TCPTunnel struct {
 	packetCount atomic.Uint64
 }
 
-// TCP buffer size range for gvisor stacks.
 var (
 	TCPBufMin     = 4 * 1024 * 1024
 	TCPBufDefault = 16 * 1024 * 1024
 	TCPBufMax     = 64 * 1024 * 1024
 )
 
-// SetTCPBuffers applies the configured TCP send/receive buffer ranges to s.
 func SetTCPBuffers(s *stack.Stack) {
 	rcv := tcpip.TCPReceiveBufferSizeRangeOption{Min: TCPBufMin, Default: TCPBufDefault, Max: TCPBufMax}
 	if err := s.SetTransportProtocolOption(tcp.ProtocolNumber, &rcv); err != nil {
@@ -164,6 +159,8 @@ func (t *TCPTunnel) handleExitTCP(r *tcp.ForwarderRequest) {
 		}
 		if tc, ok := remote.(*net.TCPConn); ok {
 			_ = tc.SetNoDelay(true)
+			_ = tc.SetKeepAlive(true)
+			_ = tc.SetKeepAlivePeriod(45 * time.Second)
 			_ = tc.SetReadBuffer(16 * 1024 * 1024)
 			_ = tc.SetWriteBuffer(16 * 1024 * 1024)
 		}

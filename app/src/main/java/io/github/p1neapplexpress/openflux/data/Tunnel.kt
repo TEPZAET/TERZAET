@@ -12,4 +12,5 @@ data class Tunnel(
     val adminHost: String? = null,
     val adminUser: String? = null,
     val adminPort: Int? = null,
+    val serverRevision: Int = 0,
 )

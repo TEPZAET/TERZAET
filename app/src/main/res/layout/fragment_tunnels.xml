@@ -36,33 +36,39 @@
 
             <LinearLayout android:tag="glass" android:layout_width="match_parent" android:layout_height="196dp" android:layout_marginHorizontal="16dp"
                 android:background="@drawable/glass_panel" android:elevation="7dp" android:orientation="horizontal" android:padding="14dp">
-                <LinearLayout android:id="@+id/connectButton" android:layout_width="126dp" android:layout_height="match_parent"
+                <LinearLayout android:id="@+id/connectButton" android:layout_width="140dp" android:layout_height="match_parent"
                     android:background="@drawable/connect_square" android:elevation="6dp" android:gravity="center" android:orientation="vertical"
                     android:clickable="true" android:focusable="true">
                     <ImageView android:id="@+id/powerIcon" android:layout_width="48dp" android:layout_height="48dp" android:src="@drawable/ic_power" app:tint="#30363B" />
-                    <TextView android:id="@+id/connectLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp"
-                        android:text="@string/tap_to_connect" android:textColor="#252A2F" android:textSize="14sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/connectLabel" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"
+                        android:gravity="center" android:maxLines="2" android:includeFontPadding="false"
+                        android:text="@string/tap_to_connect" android:textColor="#252A2F" android:textSize="13sp" android:textStyle="bold" />
                 </LinearLayout>
                 <View android:layout_width="1dp" android:layout_height="match_parent" android:layout_marginHorizontal="14dp" android:background="#55FFFFFF" />
                 <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
                         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Скорость" android:textColor="#3F454A" android:textSize="12sp" />
-                            <TextView android:id="@+id/speedValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="—" android:textColor="#252A2F" android:textSize="19sp" />
+                            <TextView android:id="@+id/speedValue" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                                android:gravity="center" android:maxLines="1" android:text="—" android:textColor="#252A2F" android:textSize="18sp" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp"
+                                android:text="Мбит/с" android:textColor="#5A6065" android:textSize="9sp" />
                         </LinearLayout>
                         <View android:layout_width="1dp" android:layout_height="match_parent" android:layout_marginVertical="8dp" android:background="#55FFFFFF" />
                         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Пинг" android:textColor="#3F454A" android:textSize="12sp" />
-                            <TextView android:id="@+id/pingValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="—" android:textColor="#252A2F" android:textSize="19sp" />
+                            <TextView android:id="@+id/pingValue" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                                android:gravity="center" android:maxLines="1" android:text="—" android:textColor="#252A2F" android:textSize="18sp" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp"
+                                android:text="мс" android:textColor="#5A6065" android:textSize="9sp" />
                         </LinearLayout>
                     </LinearLayout>
                     <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginHorizontal="6dp" android:background="#66FFFFFF" />
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:paddingHorizontal="12dp">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center" android:paddingHorizontal="8dp">
                         <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_timer" />
-                        <TextView android:id="@+id/uptimeLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                            android:layout_marginStart="9dp" android:text="@string/uptime_label" android:textColor="#3F454A" android:textSize="12sp" />
                         <TextView android:id="@+id/uptimeText" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="00:00" android:textColor="#20252A" android:textSize="17sp" android:fontFamily="monospace" android:alpha="0.35" />
+                            android:layout_marginStart="9dp" android:minWidth="72dp" android:gravity="center"
+                            android:text="00:00" android:textColor="#20252A" android:textSize="16sp" android:fontFamily="monospace" android:alpha="0.35" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>

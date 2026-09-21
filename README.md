@@ -5,12 +5,12 @@ TERZAET — независимый неофициальный форк OpenFluxA
 <table>
   <tr>
     <td align="center">
-      <img src="docs/terzaet-home.jpg" alt="Главный экран TERZAET" width="320">
+      <img src="docs/terzaet-home.jpg" alt="Главный экран TERZAET" width="280" height="560">
       <br>
       <sub>Главный экран</sub>
     </td>
     <td align="center">
-      <img src="docs/terzaet-server.jpg" alt="Установка собственного сервера" width="320">
+      <img src="docs/terzaet-server.jpg" alt="Установка собственного сервера" width="280" height="560">
       <br>
       <sub>Установка собственного сервера</sub>
     </td>

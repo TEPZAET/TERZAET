@@ -1,32 +1,31 @@
 # TERZAET
 
-TERZAET — независимый форк [OpenFluxAndroid](https://github.com/p1neappleXpress/OpenFluxAndroid) с обновлённым Android-интерфейсом и установкой серверной части на VDS.
+TERZAET — независимый неофициальный форк OpenFluxAndroid/OpenFlux с отдельной серверной частью для VDS.
 
-## Android
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/terzaet-home.jpg" alt="Главный экран TERZAET" width="320">
+      <br>
+      <sub>Главный экран</sub>
+    </td>
+    <td align="center">
+      <img src="docs/terzaet-server.jpg" alt="Установка собственного сервера" width="320">
+      <br>
+      <sub>Установка собственного сервера</sub>
+    </td>
+  </tr>
+</table>
 
-Готовый APK находится в разделе **Releases**.
-
-Требования:
-
-- Android 8.0 или новее;
-- разрешение на VPN-подключение;
-- разрешение на уведомления для отображения состояния и переподключения.
-
-Сборка из исходников:
-
-```bash
-./gradlew assembleDebug
-```
-
-Android namespace `io.github.p1neapplexpress.openflux` сохранён для совместимости с установленными версиями форка. Встроенный клиент OpenFlux собран из commit `9148c6356a0f580b46c0af92afbc42fd96be64c8` с Go 1.27.0. Скрипты повторной сборки нативных компонентов находятся в `app/src/main/build-openflux.sh` и `app/src/main/build-jni.sh`; для них требуется Android NDK r27 или новее.
+Минималистичный интерфейс, понятные состояния подключения и управление сервером из одного места.
 
 ## Установка на VDS
 
-Самый простой способ — открыть вкладку **Админ** в приложении и указать адрес VDS, пользователя `root`, пароль SSH, ссылку на документ Яндекса и при необходимости ключ шифрования.
+Откройте в приложении раздел «Админ», укажите имя сервера, адрес VDS, пользователя, пароль SSH и публичную ссылку на документ Яндекса. При необходимости можно включить дополнительное шифрование.
 
-Приложение проверит сервер, установит Docker, соберёт серверную часть и добавит конфигурацию автоматически.
+Приложение проверит доступность VDS, подготовит Docker, установит TERZAET и добавит конфигурацию автоматически.
 
-Ручная установка:
+Для ручной установки на сервере:
 
 ```bash
 export TERZAET_DOC_URL='https://disk.yandex.ru/i/...'
@@ -45,10 +44,4 @@ curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts
 
 ## Происхождение
 
-TERZAET является неофициальным независимым форком OpenFluxAndroid и OpenFlux. Проект не связан с авторами оригинальных проектов. Права на исходные компоненты, зависимости и сторонний код принадлежат их соответствующим авторам. Код предоставляется как есть, без гарантий.
-
----
-
-TERZAET is an independent, unofficial fork of [OpenFluxAndroid](https://github.com/p1neappleXpress/OpenFluxAndroid) with a redesigned Android interface and VDS deployment support.
-
-The APK is available under **Releases**. Build the Android project with `./gradlew assembleDebug`. Server sources and the VDS installer are located in [`server`](server). TERZAET is not affiliated with the original OpenFlux authors and is provided as is, without warranty.
+TERZAET — независимый неофициальный форк [OpenFluxAndroid](https://github.com/p1neappleXpress/OpenFluxAndroid) и [OpenFlux](https://github.com/p1neappleXpress/OpenFlux). Проект не связан с авторами оригинальных репозиториев. Права на исходные компоненты, зависимости и сторонний код принадлежат их соответствующим авторам. Код предоставляется как есть, без гарантий.

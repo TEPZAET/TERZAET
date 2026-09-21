@@ -150,6 +150,9 @@ class ServerInstallFragment : BaseFragment() {
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_success)
                 status.text = "100% · Сервер установлен\n${installed.transportLabel}\nКлюч сервера: ${installed.fingerprint}"
                 button.text = "Готово"
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.main, MainFragment())
+                    .commitAllowingStateLoss()
             }.onFailure { error ->
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(error)

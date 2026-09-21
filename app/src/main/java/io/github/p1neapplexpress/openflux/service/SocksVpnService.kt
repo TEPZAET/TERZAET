@@ -120,7 +120,10 @@ class SocksVpnService : android.net.VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent ?: return START_STICKY
+        if (intent == null) {
+            stopEverything()
+            return START_NOT_STICKY
+        }
         lastIntent = intent
         shutdownComplete.set(false)
         stopping.set(false)
@@ -128,13 +131,13 @@ class SocksVpnService : android.net.VpnService() {
 
         if (vpn.isConfigured()) {
             Logx.d(TAG, "VPN already configured, ignoring")
-            return START_STICKY
+            return START_NOT_STICKY
         }
 
         vpn.configure(intent)
         EventBus.dispatch(AppEvent.LogMessage("[S] VPN configured"))
         Logx.i(TAG, "VPN configured")
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -290,6 +293,7 @@ class SocksVpnService : android.net.VpnService() {
         runCatching { StaleProcesses.kill(applicationInfo.nativeLibraryDir) }
         lastIntent = null
         shutdownComplete.set(true)
+        notifications.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

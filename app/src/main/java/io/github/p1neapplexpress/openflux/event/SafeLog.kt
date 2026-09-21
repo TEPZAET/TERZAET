@@ -10,6 +10,7 @@ object SafeLog {
     fun message(raw: String): String {
         val lower = raw.lowercase(Locale.ROOT)
         return when {
+            "captcha" in lower -> "Яндекс запросил CAPTCHA. Замените документ или IP сервера."
             "подключение восстановлено" in lower -> "Подключение восстановлено"
             "восстанавли" in lower -> "Восстанавливаем соединение"
             "vpn configured" in lower -> "VPN-интерфейс подготовлен"

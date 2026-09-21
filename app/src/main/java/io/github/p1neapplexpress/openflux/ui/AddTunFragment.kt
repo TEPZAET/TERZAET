@@ -73,37 +73,37 @@ class AddTunFragment : BaseFragment() {
             url.text = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url
             key.text = tunnel.encryptionKey.orEmpty()
             encryptionSwitch.isChecked = !tunnel.encryptionKey.isNullOrBlank()
-            save.text = "Сохранить изменения"
+            save.text = "Сохранить локально"
             adminContainer.isVisible = true
             adminHost.setText(tunnel.adminHost.orEmpty())
             adminUser.setText(tunnel.adminUser ?: "root")
             adminPort.setText((tunnel.adminPort ?: 22).toString())
             removeFromVds.isVisible = true
-            updateVds.isVisible = ServerRelease.updateAvailable(tunnel)
+            updateVds.isVisible = true
         }
         keyContainer.isVisible = encryptionSwitch.isChecked
         encryptionSwitch.setOnCheckedChangeListener { _, enabled ->
             keyContainer.isVisible = enabled
             if (!enabled) key.text = ""
         }
-        save.setOnClickListener {
+        fun tunnelFromFields(): Tunnel? {
             val tunnelName = name.text.toString().trim()
             val documentUrl = url.text.toString().trim()
             val rawKey = key.text.toString().trim()
             if (tunnelName.isBlank() || !documentUrl.startsWith("https://")) {
                 Toast.makeText(requireContext(), "Введите имя и корректный URL документа", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                return null
             }
             if (encryptionSwitch.isChecked && !EncryptionKey.isValid(rawKey)) {
                 keyContainer.error = "Минимум 16 символов"
-                return@setOnClickListener
+                return null
             }
             val transport = editing?.let { TransportType.from(it.transportType) }
                 ?.takeIf { it == TransportType.yandex || it == TransportType.vyandex }
                 ?: TransportType.yandex
             val payload = TunnelPayload.build(TunnelPayload.Form(transport = transport, url = documentUrl))
-                ?: return@setOnClickListener
-            val tunnel = Tunnel(
+                ?: return null
+            return Tunnel(
                 id = editing?.id ?: Random(System.currentTimeMillis()).nextLong(),
                 name = tunnelName,
                 transportType = transport.name,
@@ -114,6 +114,9 @@ class AddTunFragment : BaseFragment() {
                 adminPort = adminPort.text.toString().toIntOrNull()?.takeIf { editing != null && it in 1..65535 },
                 serverRevision = editing?.serverRevision ?: 0,
             )
+        }
+        save.setOnClickListener {
+            val tunnel = tunnelFromFields() ?: return@setOnClickListener
             editing?.let { vm.updateTunnel(it, tunnel) } ?: vm.addTunnel(tunnel)
             Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
             requireActivity().onBackPressedDispatcher.onBackPressed()
@@ -129,30 +132,31 @@ class AddTunFragment : BaseFragment() {
             }
         }
         updateVds.setOnClickListener {
-            val tunnel = editing ?: return@setOnClickListener
+            val original = editing ?: return@setOnClickListener
+            val candidate = tunnelFromFields() ?: return@setOnClickListener
             val host = adminHost.text.toString().trim()
             val user = adminUser.text.toString().trim()
             val port = adminPort.text.toString().toIntOrNull() ?: 22
             if (host.isBlank() || user.isBlank() || port !in 1..65535) {
                 Toast.makeText(requireContext(), "Введите адрес VDS, пользователя и порт", Toast.LENGTH_SHORT).show()
             } else {
-                requestVdsUpdate(tunnel, host, user, port, updateVds)
+                requestVdsUpdate(original, candidate, host, user, port)
             }
         }
     }
 
-    private fun requestVdsUpdate(tunnel: Tunnel, host: String, user: String, port: Int, updateButton: Button) {
+    private fun requestVdsUpdate(original: Tunnel, candidate: Tunnel, host: String, user: String, port: Int) {
         val content = layoutInflater.inflate(R.layout.dialog_ssh_password, null)
         content.findViewById<TextView>(R.id.passwordHint).text = "Введите пароль для обновления сервера. Пароль не сохраняется."
         val password = content.findViewById<EditText>(R.id.sshPassword)
         val progress = content.findViewById<View>(R.id.removalProgress)
         val progressText = content.findViewById<TextView>(R.id.removalStatus)
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Обновить TERZAET на VDS?")
-            .setMessage("Текущее подключение будет кратковременно перезапущено. При ошибке установщик восстановит предыдущую версию.")
+            .setTitle("Применить документ на VDS?")
+            .setMessage("Ссылка документа будет сохранена на сервере. Подключение кратковременно перезапустится.")
             .setView(content)
             .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton("Обновить", null)
+            .setPositiveButton("Применить", null)
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -167,21 +171,20 @@ class AddTunFragment : BaseFragment() {
                 progress.isVisible = true
                 progressText.text = "Загружаем и устанавливаем обновление…"
                 viewLifecycleOwner.lifecycleScope.launch {
-                    val result = withContext(Dispatchers.IO) { updateOnVds(tunnel, host, user, port, value) }
+                    val result = withContext(Dispatchers.IO) { updateOnVds(candidate, host, user, port, value) }
                     password.text.clear()
                     result.onSuccess {
-                        val updated = tunnel.copy(serverRevision = ServerRelease.REVISION)
-                        vm.updateTunnel(tunnel, updated)
+                        val updated = candidate.copy(serverRevision = ServerRelease.REVISION)
+                        vm.updateTunnel(original, updated)
                         editing = updated
-                        updateButton.isVisible = false
                         dialog.dismiss()
-                        Toast.makeText(requireContext(), "Сервер обновлён", Toast.LENGTH_LONG).show()
+                        Toast.makeText(requireContext(), "Документ применён на VDS", Toast.LENGTH_LONG).show()
                     }.onFailure {
                         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
                         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = true
                         password.isEnabled = true
                         progress.isVisible = false
-                        password.error = "Обновление не завершено. Рабочая версия сохранена."
+                        password.error = "Не удалось применить документ. Текущая конфигурация сохранена."
                     }
                 }
             }

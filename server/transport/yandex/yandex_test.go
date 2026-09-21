@@ -87,6 +87,14 @@ func TestFetchDocInfoMissingConfigReturnsError(t *testing.T) {
 	}
 }
 
+func TestFetchDocInfoCaptchaReturnsError(t *testing.T) {
+	url := serveConfig(t, `<!DOCTYPE html><html><body>captcha</body></html>`)
+
+	if _, err := (&YandexDocsTransport{}).fetchDocInfo(url, "0000000001"); err == nil || !strings.Contains(err.Error(), "CAPTCHA") {
+		t.Fatalf("expected CAPTCHA error, got: %v", err)
+	}
+}
+
 func TestFetchDocInfoValidConfig(t *testing.T) {
 	config := `{"officeActionData":{"balancer_url":"https://balancer.example.net",` +
 		`"editor_config":{"type":"desktop","token":"jwt-token",` +

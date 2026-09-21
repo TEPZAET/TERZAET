@@ -416,9 +416,11 @@ func (t *YandexDocsTransport) fetchDocInfo(url, userID string) (YandexDocsInfo, 
 
 	matches := clientConfigRe.FindStringSubmatch(html)
 	if len(matches) < 2 {
-		// Help diagnose: is this a login page, a new-editor page, etc.?
 		hint := "no client-config script"
-		if strings.Contains(html, "passport") || strings.Contains(strings.ToLower(html), "login") {
+		lowerHTML := strings.ToLower(html)
+		if strings.Contains(lowerHTML, "captcha") || strings.Contains(strings.ToLower(resp.Request.URL.String()), "showcaptcha") {
+			hint = "Yandex CAPTCHA blocked this VDS IP"
+		} else if strings.Contains(html, "passport") || strings.Contains(lowerHTML, "login") {
 			hint = "looks like a login page (doc not public?)"
 		}
 		return YandexDocsInfo{}, fmt.Errorf("config not found: %s (status %d, final %s)", hint, resp.StatusCode, resp.Request.URL.String())

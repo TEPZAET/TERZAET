@@ -13,6 +13,7 @@ import android.widget.TextView
 import android.widget.LinearLayout
 import androidx.fragment.app.activityViewModels
 import androidx.core.content.ContextCompat
+import androidx.viewpager2.widget.ViewPager2
 import androidx.lifecycle.lifecycleScope
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
@@ -153,9 +154,7 @@ class ServerInstallFragment : BaseFragment() {
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_success)
                 status.text = "100% · Сервер установлен\n${installed.transportLabel}"
                 button.text = "Готово"
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.main, MainFragment())
-                    .commitAllowingStateLoss()
+                requireActivity().findViewById<ViewPager2>(R.id.view_pager)?.setCurrentItem(0, true)
             }.onFailure { error ->
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(error)

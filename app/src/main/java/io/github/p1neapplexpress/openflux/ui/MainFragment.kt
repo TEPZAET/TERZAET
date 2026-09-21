@@ -5,7 +5,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import io.github.p1neapplexpress.openflux.R
@@ -27,7 +26,7 @@ class MainFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         pager = view.findViewById(R.id.view_pager)
-        pager.adapter = PagerAdapter(requireActivity())
+        pager.adapter = PagerAdapter(this)
         pager.offscreenPageLimit = 3
         pager.isUserInputEnabled = false
         navItems = listOf(
@@ -53,7 +52,7 @@ class MainFragment : BaseFragment() {
         }
     }
 
-    private inner class PagerAdapter(activity: FragmentActivity) : FragmentStateAdapter(activity) {
+    private inner class PagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
         override fun getItemCount(): Int = 4
         override fun createFragment(position: Int): Fragment = when (position) {
             0 -> TunnelsFragment()

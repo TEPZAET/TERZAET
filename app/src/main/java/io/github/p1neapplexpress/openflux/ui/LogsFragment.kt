@@ -70,11 +70,15 @@ class LogsFragment : BaseFragment() {
 
     private fun appendCard(raw: String) {
         val lower = raw.lowercase(Locale.ROOT)
-        val error = lower.contains("не удалось") || lower.contains("отклонил") || lower.contains("не ответил")
+        val error = lower.contains("не удалось") || lower.contains("отклонил") || lower.contains("не ответил") || lower.contains("captcha")
         val success = lower.contains("восстановлено") || lower.contains("запущен") || lower.contains("проверена")
         val title: String
         val explanation: String
         when {
+            lower.contains("captcha") -> {
+                title = "Яндекс запросил CAPTCHA"
+                explanation = "Этот VDS временно не может открыть документ. Замените документ или IP сервера."
+            }
             lower.contains("dns ожидает") -> {
                 title = "DNS ожидает канал"
                 explanation = "После подключения серверу может понадобиться несколько секунд. TERZAET повторит запрос автоматически."

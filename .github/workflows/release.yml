@@ -27,5 +27,5 @@ jobs:
           body: |-
             Визуал и стабильность🤍
             TERZAET — независимый неофициальный форк OpenFluxAndroid/OpenFlux.
-          files: TERZAET-1.0.4.apk
+          files: TERZAET-*.apk
           make_latest: true

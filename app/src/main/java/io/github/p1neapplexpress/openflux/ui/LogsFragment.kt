@@ -10,7 +10,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import io.github.p1neapplexpress.openflux.R
@@ -24,23 +23,8 @@ import java.util.Locale
 class LogsFragment : BaseFragment() {
     private lateinit var list: LinearLayout
     private lateinit var scrollView: ScrollView
-    private val exportedLogs = ArrayDeque<String>()
+    private var autoScroll = true
     private val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    private val fileTime = SimpleDateFormat("yyyy-MM-dd-HH-mm", Locale.getDefault())
-    private val exportDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        if (uri == null) return@registerForActivityResult
-        runCatching {
-            requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
-                writer.appendLine("TERZAET · обезличенный журнал")
-                writer.appendLine()
-                exportedLogs.forEach(writer::appendLine)
-            } ?: error("Не удалось открыть файл")
-        }.onSuccess {
-            Toast.makeText(requireContext(), "Журнал экспортирован", Toast.LENGTH_SHORT).show()
-        }.onFailure {
-            Toast.makeText(requireContext(), "Не удалось сохранить журнал", Toast.LENGTH_SHORT).show()
-        }
-    }
 
     override fun onNewEvent(ev: AppEvent) = Unit
 
@@ -50,16 +34,13 @@ class LogsFragment : BaseFragment() {
     override fun onViewCreated(view: View, state: Bundle?) {
         list = view.findViewById(R.id.log_list)
         scrollView = view.findViewById(R.id.log_scroll)
-        view.findViewById<TextView>(R.id.btn_clear).setOnClickListener {
-            list.removeAllViews()
-            exportedLogs.clear()
-        }
-        view.findViewById<TextView>(R.id.btn_export).setOnClickListener {
-            if (exportedLogs.isEmpty()) {
-                Toast.makeText(requireContext(), "Журнал пока пуст", Toast.LENGTH_SHORT).show()
-            } else {
-                exportDocument.launch("TERZAET-log-${fileTime.format(Date())}.txt")
-            }
+        view.findViewById<TextView>(R.id.btn_clear).setOnClickListener { list.removeAllViews() }
+        val autoButton = view.findViewById<TextView>(R.id.btn_autoscroll)
+        autoButton.setTextColor(ContextCompat.getColor(requireContext(), R.color.log_green))
+        autoButton.setOnClickListener {
+            autoScroll = !autoScroll
+            autoButton.setTextColor(ContextCompat.getColor(requireContext(), if (autoScroll) R.color.log_green else R.color.log_gray))
+            if (autoScroll) scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             EventBus.events.collect { event ->
@@ -124,13 +105,11 @@ class LogsFragment : BaseFragment() {
                 animate().scaleX(0.98f).scaleY(0.98f).setDuration(80L).withEndAction { animate().scaleX(1f).scaleY(1f).setDuration(140L).start() }.start()
             }
         }
-        exportedLogs.addLast(card.text.toString())
-        while (exportedLogs.size > 120) exportedLogs.removeFirst()
         list.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = dp(10)
         })
         while (list.childCount > 120) list.removeViewAt(0)
-        scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
+        if (autoScroll) scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
     }
 
     private fun friendlyReason(lower: String) = when {

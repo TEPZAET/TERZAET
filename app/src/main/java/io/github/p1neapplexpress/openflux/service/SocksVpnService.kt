@@ -5,8 +5,8 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.IBinder
-import android.os.PowerManager
 import io.github.p1neapplexpress.openflux.IUnifiedService
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import io.github.p1neapplexpress.openflux.event.EventBus
@@ -14,7 +14,6 @@ import io.github.p1neapplexpress.openflux.NativeBridge
 import io.github.p1neapplexpress.openflux.util.Constants
 import io.github.p1neapplexpress.openflux.util.Logx
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,13 +39,11 @@ class SocksVpnService : android.net.VpnService() {
     private val shutdownComplete = AtomicBoolean(true)
     private val stopping = AtomicBoolean(false)
     private val reconnecting = AtomicBoolean(false)
-    private val sessionGeneration = AtomicLong(0L)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var healthJob: Job? = null
     private var lastTransportArgs: List<String>? = null
     private var lastEncryptionKey: String? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
-    private var networkRecoveryJob: Job? = null
     private var networkAvailable = false
 
     private val binder = object : IUnifiedService.Stub() {
@@ -64,7 +61,6 @@ class SocksVpnService : android.net.VpnService() {
             stopping.set(false)
             lastTransportArgs = args.toList()
             lastEncryptionKey = encryptionKey
-            sessionGeneration.incrementAndGet()
             supervisor.start(args.toList(), encryptionKey)
         }
 
@@ -91,7 +87,6 @@ class SocksVpnService : android.net.VpnService() {
 
                 if (ok) {
                     vpn.isRunning.set(true)
-                    getSharedPreferences("vpn_runtime", MODE_PRIVATE).edit().putBoolean("active", true).apply()
                     notifications.startSpeedUpdates()
                     EventBus.dispatch(AppEvent.LogMessage("[I] tun2socks running"))
                     Logx.i(TAG, "tun2socks running")
@@ -125,10 +120,7 @@ class SocksVpnService : android.net.VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null) {
-            stopEverything()
-            return START_NOT_STICKY
-        }
+        intent ?: return START_STICKY
         lastIntent = intent
         shutdownComplete.set(false)
         stopping.set(false)
@@ -136,13 +128,13 @@ class SocksVpnService : android.net.VpnService() {
 
         if (vpn.isConfigured()) {
             Logx.d(TAG, "VPN already configured, ignoring")
-            return START_NOT_STICKY
+            return START_STICKY
         }
 
         vpn.configure(intent)
         EventBus.dispatch(AppEvent.LogMessage("[S] VPN configured"))
         Logx.i(TAG, "VPN configured")
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -166,12 +158,11 @@ class SocksVpnService : android.net.VpnService() {
 
     private fun startHealthMonitor() {
         healthJob?.cancel()
-        val generation = sessionGeneration.get()
         healthJob = serviceScope.launch {
             var failures = 0
             var networkWasMissing = false
-            while (isActive && !stopping.get() && generation == sessionGeneration.get()) {
-                delay(20_000L)
+            while (isActive && !stopping.get()) {
+                delay(10_000L)
                 if (!hasInternetNetwork()) {
                     networkWasMissing = true
                     failures = 0
@@ -184,7 +175,7 @@ class SocksVpnService : android.net.VpnService() {
                     recoverTransport("сеть снова доступна")
                     continue
                 }
-                val latency = supervisor.measureDataPathLatency(4_000)
+                val latency = supervisor.measureDataPathLatency(3_000)
                 EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.CHECKING))
                 if (latency >= 0L) {
                     failures = 0
@@ -192,78 +183,75 @@ class SocksVpnService : android.net.VpnService() {
                     failures++
                     if (failures >= 3) {
                         failures = 0
-                        recoverTransport("сервер перестал отвечать", generation)
+                        recoverTransport("сервер перестал отвечать")
                     }
                 }
             }
         }
     }
 
-    private suspend fun recoverTransport(reason: String, expectedGeneration: Long = sessionGeneration.get()) {
-        if (expectedGeneration != sessionGeneration.get()) return
+    private suspend fun recoverTransport(reason: String) {
         if (!reconnecting.compareAndSet(false, true) || stopping.get()) return
-        val powerManager = getSystemService(PowerManager::class.java)
-        val wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:recovery")
-        runCatching { wakeLock?.acquire(90_000L) }
-        try {
-            val args = lastTransportArgs ?: return
-            notifications.stopSpeedUpdates()
-            notifications.updateContent("Связь потеряна · восстанавливаем…")
-            EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORING))
-            EventBus.dispatch(AppEvent.LogMessage("Соединение восстанавливается"))
-            var restored = false
-            for (attempt in 1..4) {
-                if (stopping.get() || expectedGeneration != sessionGeneration.get()) break
-                runCatching { tun2socks.stop() }
-                vpn.isRunning.set(false)
-                runCatching { supervisor.stop() }
-                delay((1_000L shl (attempt - 1)).coerceAtMost(8_000L))
-                supervisor.start(args, lastEncryptionKey)
-                val deadline = System.currentTimeMillis() + 45_000L
-                while (!supervisor.isReady && supervisor.error == null && System.currentTimeMillis() < deadline && !stopping.get() && expectedGeneration == sessionGeneration.get()) {
-                    delay(250L)
-                }
-                if (supervisor.isReady && supervisor.measureDataPathLatency(5_000) >= 0L) {
-                    binder.startTun2Socks()
-                    restored = vpn.isRunning.get()
-                    if (restored) break
-                }
-            }
-            if (restored) {
-                notifications.stopSpeedUpdates()
-                notifications.updateContent("Подключение восстановлено")
-                notifications.showRecoverySuccess()
-                EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORED))
-                EventBus.dispatch(AppEvent.LogMessage("Подключение восстановлено"))
-                delay(4_000L)
-                if (!stopping.get() && expectedGeneration == sessionGeneration.get()) {
-                    notifications.startSpeedUpdates()
-                    startHealthMonitor()
-                }
-            } else if (!stopping.get() && expectedGeneration == sessionGeneration.get()) {
-                notifications.updateContent("Сервер недоступен · откройте TERZAET")
-                EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.UNAVAILABLE))
-                EventBus.dispatch(AppEvent.NativeProcessExited("Не удалось восстановить соединение автоматически"))
-                stopEverything()
-            }
-        } finally {
+        val args = lastTransportArgs
+        if (args == null) {
             reconnecting.set(false)
-            if (wakeLock?.isHeld == true) wakeLock.release()
+            return
+        }
+        notifications.stopSpeedUpdates()
+        notifications.updateContent("Связь потеряна · восстанавливаем…")
+        EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORING))
+        EventBus.dispatch(AppEvent.LogMessage("Соединение восстанавливается"))
+        var restored = false
+        for (attempt in 1..4) {
+            if (stopping.get()) break
+            runCatching { tun2socks.stop() }
+            vpn.isRunning.set(false)
+            runCatching { supervisor.stop() }
+            delay((1_000L shl (attempt - 1)).coerceAtMost(8_000L))
+            supervisor.start(args, lastEncryptionKey)
+            val deadline = System.currentTimeMillis() + 45_000L
+            while (!supervisor.isReady && supervisor.error == null && System.currentTimeMillis() < deadline && !stopping.get()) {
+                delay(250L)
+            }
+            if (supervisor.isReady && supervisor.measureDataPathLatency(5_000) >= 0L) {
+                binder.startTun2Socks()
+                restored = vpn.isRunning.get()
+                if (restored) break
+            }
+        }
+        reconnecting.set(false)
+        if (restored) {
+            notifications.stopSpeedUpdates()
+            notifications.updateContent("Подключение восстановлено")
+            notifications.showRecoverySuccess()
+            EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORED))
+            EventBus.dispatch(AppEvent.LogMessage("Подключение восстановлено"))
+            delay(4_000L)
+            if (!stopping.get()) {
+                notifications.startSpeedUpdates()
+                startHealthMonitor()
+            }
+        } else if (!stopping.get()) {
+            notifications.updateContent("Сервер недоступен · откройте TERZAET")
+            EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.UNAVAILABLE))
+            EventBus.dispatch(AppEvent.NativeProcessExited("Не удалось восстановить соединение автоматически"))
+            stopEverything()
         }
     }
 
     private fun registerNetworkObserver() {
         val manager = getSystemService(ConnectivityManager::class.java) ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 val wasUnavailable = !networkAvailable
                 networkAvailable = true
                 if (wasUnavailable && vpn.isRunning.get() && !reconnecting.get() && !stopping.get()) {
-                    networkRecoveryJob?.cancel()
-                    val generation = sessionGeneration.get()
-                    networkRecoveryJob = serviceScope.launch {
-                        delay(2_000L)
-                        if (hasInternetNetwork()) recoverTransport("network changed", generation)
+                    serviceScope.launch {
+                        delay(1_200L)
+                        recoverTransport("network changed")
                     }
                 }
             }
@@ -278,7 +266,7 @@ class SocksVpnService : android.net.VpnService() {
         }
         networkCallback = callback
         networkAvailable = hasInternetNetwork()
-        manager.registerDefaultNetworkCallback(callback)
+        manager.registerNetworkCallback(request, callback)
     }
 
     private fun hasInternetNetwork(): Boolean {
@@ -294,9 +282,6 @@ class SocksVpnService : android.net.VpnService() {
         Logx.i(TAG, "stopEverything")
         healthJob?.cancel()
         healthJob = null
-        networkRecoveryJob?.cancel()
-        networkRecoveryJob = null
-        sessionGeneration.incrementAndGet()
         reconnecting.set(false)
         notifications.stopSpeedUpdates()
         runCatching { tun2socks.stop() }
@@ -305,8 +290,6 @@ class SocksVpnService : android.net.VpnService() {
         runCatching { StaleProcesses.kill(applicationInfo.nativeLibraryDir) }
         lastIntent = null
         shutdownComplete.set(true)
-        getSharedPreferences("vpn_runtime", MODE_PRIVATE).edit().putBoolean("active", false).apply()
-        notifications.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

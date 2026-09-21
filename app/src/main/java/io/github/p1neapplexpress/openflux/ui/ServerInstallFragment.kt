@@ -27,7 +27,6 @@ import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.TransportType
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelPayload
-import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,7 +98,6 @@ class ServerInstallFragment : BaseFragment() {
                 document = document.text.toString().trim(),
                 encryptionKey = encryption.text.toString().takeIf { encryptionSwitch.isChecked }.orEmpty(),
             )
-            if (!encryptionSwitch.isChecked) encryption.text.clear()
             if (!request.valid()) {
                 status.text = "Заполните название, IP, логин, пароль и ссылку на документ. Ключ можно оставить пустым."
                 return@setOnClickListener
@@ -146,16 +144,12 @@ class ServerInstallFragment : BaseFragment() {
                     adminHost = request.host,
                     adminUser = request.user,
                     adminPort = request.port,
-                    serverRevision = ServerRelease.REVISION,
                 )
                 vm.addTunnel(tunnel)
                 vm.selectTunnel(tunnel)
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_success)
-                status.text = "100% · Сервер установлен\n${installed.transportLabel}"
+                status.text = "100% · Сервер установлен\n${installed.transportLabel}\nКлюч сервера: ${installed.fingerprint}"
                 button.text = "Готово"
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.main, MainFragment())
-                    .commitAllowingStateLoss()
             }.onFailure { error ->
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(error)

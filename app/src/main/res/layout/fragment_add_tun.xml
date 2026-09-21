@@ -123,10 +123,6 @@
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
             app:cornerRadius="20dp" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/updateVdsButton"
-            android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
-            android:text="Обновить сервер" android:textAllCaps="false" android:textColor="#202327"
-            android:backgroundTint="#E5B642" android:visibility="gone" app:cornerRadius="20dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/removeFromVdsButton"
             android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
             android:text="Удалить TERZAET с VDS" android:textAllCaps="false" android:textColor="@color/state_error"

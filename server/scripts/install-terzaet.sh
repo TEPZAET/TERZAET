@@ -9,7 +9,6 @@ image="terzaet-yandex:local"
 doc_url="${TERZAET_DOC_URL:-${1:-}}"
 encryption_key="${TERZAET_ENCRYPTION_KEY:-}"
 key_file="$install_dir/encryption-key"
-server_revision="2"
 
 fail() {
     printf 'ERROR: %s\n' "$1" >&2
@@ -166,7 +165,5 @@ while [ -z "$detected" ] && [ "$attempt" -lt 15 ]; do
     attempt=$((attempt + 1))
 done
 [ -n "$detected" ] || detected="pending"
-printf '%s\n' "$server_revision" > "$install_dir/version"
-chmod 600 "$install_dir/version"
 printf 'PROGRESS=100|Сервер готов\n'
 printf 'OK\nCONTAINER=%s\nTRANSPORT=%s\nBACKUP=%s\n' "$container" "$detected" "$backup_dir"

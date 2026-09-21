@@ -20,6 +20,9 @@ import (
 	"openflux/utils"
 )
 
+// Precompiled once. cursorPayloadRe in particular runs on every inbound
+// message, so compiling it per call (as before) was pure overhead on the hot
+// receive path.
 var (
 	cursorPayloadRe = regexp.MustCompile(`"cursor":"[^;]+;([^"]+)"`)
 	clientConfigRe  = regexp.MustCompile(`<script[^>]*id="client-config"[^>]*>(.*?)</script>`)
@@ -84,18 +87,6 @@ func (t *YandexDocsTransport) Start() error {
 	return nil
 }
 
-func (t *YandexDocsTransport) Stop() error {
-	_ = t.BaseTransport.Stop()
-	t.Mu.Lock()
-	session := t.session
-	t.session = nil
-	t.Mu.Unlock()
-	if session != nil && session.Conn != nil {
-		_ = session.Conn.Close()
-	}
-	return nil
-}
-
 func (t *YandexDocsTransport) Send(data []byte) error {
 	if !t.IsConnected() {
 		return fmt.Errorf("transport not connected")
@@ -150,6 +141,9 @@ func (t *YandexDocsTransport) connectToDoc(attempt int) {
 			return
 		}
 
+		// Hard TCP dial timeout so a stuck connect/DNS to the balancer host
+		// can't hang the whole transport (HandshakeTimeout alone proved
+		// insufficient on iOS).
 		dialer := websocket.Dialer{
 			HandshakeTimeout: 15 * time.Second,
 			NetDialContext: (&net.Dialer{
@@ -175,7 +169,6 @@ func (t *YandexDocsTransport) connectToDoc(attempt int) {
 			return
 		}
 		utils.Debugf("[YDOCS] WebSocket connected to %s", info.Host)
-		_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 		writeQueue := make(chan []byte, t.GetConfig().MaxQueueSize)
 		if existingSession != nil {
@@ -198,6 +191,7 @@ func (t *YandexDocsTransport) connectToDoc(attempt int) {
 			utils.SafeGo("yandex.writer", t.writerLoop)
 		}
 
+		// Auth - use safeWrite
 		auth1 := fmt.Sprintf(`40{"token":"%s"}`, info.Token)
 		session.safeWrite(websocket.TextMessage, []byte(auth1))
 
@@ -217,6 +211,9 @@ func (t *YandexDocsTransport) connectToDoc(attempt int) {
 				utils.Debugf("[YDOCS] Read error: %v", err)
 				t.SetConnected(false)
 				conn.Close()
+				// If the session was healthy for a while, treat the next
+				// connect as fresh (attempt -1 -> next attempt 0) so backoff
+				// doesn't keep growing across normal long-lived reconnects.
 				next := attempt
 				if time.Since(connectedAt) > 15*time.Second {
 					next = -1
@@ -224,13 +221,16 @@ func (t *YandexDocsTransport) connectToDoc(attempt int) {
 				t.scheduleReconnect(next)
 				return
 			}
-			_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 			t.handleMessage(session, message)
 		}
 	}()
 }
 
 func (t *YandexDocsTransport) writerLoop() {
+	// The write queue is created once and preserved across reconnects, so we
+	// capture it and block on it instead of polling with a 10ms sleep. The old
+	// poll added up to 10ms of latency to every send and woke the CPU 100x/sec
+	// while idle.
 	var queue chan []byte
 	for t.IsRunning() && queue == nil {
 		t.Mu.Lock()
@@ -260,6 +260,7 @@ func (t *YandexDocsTransport) writerLoop() {
 		session := t.session
 		t.Mu.RUnlock()
 		if session == nil || session.Conn == nil {
+			// Mid-reconnect: hold the packet and retry rather than drop it.
 			time.Sleep(15 * time.Millisecond)
 			continue
 		}
@@ -302,6 +303,7 @@ func (t *YandexDocsTransport) handleMessage(session *DocSession, data []byte) {
 		return
 	}
 
+	// Socket.IO ping - respond with pong (use safeWrite)
 	if text == "2" {
 		if session != nil && session.Conn != nil {
 			session.safeWrite(websocket.TextMessage, []byte("3"))
@@ -356,6 +358,8 @@ func (t *YandexDocsTransport) scheduleReconnect(attempt int) {
 		return
 	}
 
+	// Back off before retrying so a server that closes us immediately doesn't
+	// turn into a tight connect/close loop (previously reconnect was instant).
 	d := reconnectBackoff(next)
 	utils.Debugf("[YDOCS] reconnecting in %v (attempt %d)", d, next)
 	time.Sleep(d)
@@ -367,6 +371,15 @@ func (t *YandexDocsTransport) scheduleReconnect(attempt int) {
 	t.connectToDoc(next)
 }
 
+// reconnectBackoff returns an exponential backoff with jitter, capped at 30s.
+//
+// Each reconnect dials a brand new WebSocket, which the doc-collab server
+// registers as a brand new participant in the doc's room regardless of
+// client-side user-id reuse - a fast connect/close/reconnect loop piles up
+// visible "ghost" participants quickly (confirmed by logging the server's
+// participant-list messages during a failure streak). The floor here (was
+// 500ms) is raised to slow that churn down; this doesn't change steady-state
+// throughput since successful connects never hit backoff at all.
 func reconnectBackoff(n int) time.Duration {
 	if n < 1 {
 		n = 1
@@ -379,6 +392,7 @@ func reconnectBackoff(n int) time.Duration {
 	if d > 30*time.Second {
 		d = 30 * time.Second
 	}
+	// add up to +50% jitter
 	d += time.Duration(rand.Int63n(int64(d/2) + 1))
 	return d
 }

@@ -1,7 +1,6 @@
 package io.github.p1neapplexpress.openflux.ui
 
 import android.os.Bundle
-import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -24,7 +23,6 @@ import io.github.p1neapplexpress.openflux.data.EncryptionKey
 import io.github.p1neapplexpress.openflux.data.TransportType
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelPayload
-import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
@@ -63,7 +61,6 @@ class AddTunFragment : BaseFragment() {
         val key = view.findViewById<TextView>(R.id.encryptionKey)
         val save = view.findViewById<Button>(R.id.saveButton)
         val removeFromVds = view.findViewById<Button>(R.id.removeFromVdsButton)
-        val updateVds = view.findViewById<Button>(R.id.updateVdsButton)
         val adminContainer = view.findViewById<View>(R.id.vdsAdminContainer)
         val adminHost = view.findViewById<EditText>(R.id.adminHost)
         val adminUser = view.findViewById<EditText>(R.id.adminUser)
@@ -79,7 +76,6 @@ class AddTunFragment : BaseFragment() {
             adminUser.setText(tunnel.adminUser ?: "root")
             adminPort.setText((tunnel.adminPort ?: 22).toString())
             removeFromVds.isVisible = true
-            updateVds.isVisible = ServerRelease.updateAvailable(tunnel)
         }
         keyContainer.isVisible = encryptionSwitch.isChecked
         encryptionSwitch.setOnCheckedChangeListener { _, enabled ->
@@ -112,7 +108,6 @@ class AddTunFragment : BaseFragment() {
                 adminHost = adminHost.text.toString().trim().takeIf { editing != null && it.isNotBlank() },
                 adminUser = adminUser.text.toString().trim().takeIf { editing != null && it.isNotBlank() },
                 adminPort = adminPort.text.toString().toIntOrNull()?.takeIf { editing != null && it in 1..65535 },
-                serverRevision = editing?.serverRevision ?: 0,
             )
             editing?.let { vm.updateTunnel(it, tunnel) } ?: vm.addTunnel(tunnel)
             Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
@@ -128,96 +123,6 @@ class AddTunFragment : BaseFragment() {
                 requestVdsRemoval(host, user, port)
             }
         }
-        updateVds.setOnClickListener {
-            val tunnel = editing ?: return@setOnClickListener
-            val host = adminHost.text.toString().trim()
-            val user = adminUser.text.toString().trim()
-            val port = adminPort.text.toString().toIntOrNull() ?: 22
-            if (host.isBlank() || user.isBlank() || port !in 1..65535) {
-                Toast.makeText(requireContext(), "Введите адрес VDS, пользователя и порт", Toast.LENGTH_SHORT).show()
-            } else {
-                requestVdsUpdate(tunnel, host, user, port, updateVds)
-            }
-        }
-    }
-
-    private fun requestVdsUpdate(tunnel: Tunnel, host: String, user: String, port: Int, updateButton: Button) {
-        val content = layoutInflater.inflate(R.layout.dialog_ssh_password, null)
-        content.findViewById<TextView>(R.id.passwordHint).text = "Введите пароль для обновления сервера. Пароль не сохраняется."
-        val password = content.findViewById<EditText>(R.id.sshPassword)
-        val progress = content.findViewById<View>(R.id.removalProgress)
-        val progressText = content.findViewById<TextView>(R.id.removalStatus)
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Обновить TERZAET на VDS?")
-            .setMessage("Текущее подключение будет кратковременно перезапущено. При ошибке установщик восстановит предыдущую версию.")
-            .setView(content)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton("Обновить", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val value = password.text.toString()
-                if (value.isBlank()) {
-                    password.error = "Введите пароль"
-                    return@setOnClickListener
-                }
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
-                password.isEnabled = false
-                progress.isVisible = true
-                progressText.text = "Загружаем и устанавливаем обновление…"
-                viewLifecycleOwner.lifecycleScope.launch {
-                    val result = withContext(Dispatchers.IO) { updateOnVds(tunnel, host, user, port, value) }
-                    password.text.clear()
-                    result.onSuccess {
-                        val updated = tunnel.copy(serverRevision = ServerRelease.REVISION)
-                        vm.updateTunnel(tunnel, updated)
-                        editing = updated
-                        updateButton.isVisible = false
-                        dialog.dismiss()
-                        Toast.makeText(requireContext(), "Сервер обновлён", Toast.LENGTH_LONG).show()
-                    }.onFailure {
-                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
-                        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = true
-                        password.isEnabled = true
-                        progress.isVisible = false
-                        password.error = "Обновление не завершено. Рабочая версия сохранена."
-                    }
-                }
-            }
-        }
-        dialog.show()
-    }
-
-    private fun updateOnVds(tunnel: Tunnel, host: String, user: String, port: Int, password: String): Result<Unit> = runCatching {
-        val document = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url
-        val encodedUrl = Base64.encodeToString(document.toByteArray(), Base64.NO_WRAP)
-        val encodedKey = Base64.encodeToString(tunnel.encryptionKey.orEmpty().toByteArray(), Base64.NO_WRAP)
-        val command = "export TERZAET_INSTALL_DIR=/opt/terzaet; " +
-            "export TERZAET_DOC_URL=\$(printf %s '$encodedUrl' | base64 -d); " +
-            "export TERZAET_ENCRYPTION_KEY=\$(printf %s '$encodedKey' | base64 -d); " +
-            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh | sh 2>&1"
-        val jsch = JSch()
-        val knownHosts = File(requireContext().filesDir, "ssh_known_hosts")
-        if (!knownHosts.exists()) knownHosts.createNewFile()
-        jsch.setKnownHosts(knownHosts.absolutePath)
-        val session = jsch.getSession(user, host, port)
-        session.setPassword(password)
-        session.userInfo = PasswordInfo(password)
-        session.setConfig("StrictHostKeyChecking", "ask")
-        session.setConfig("PreferredAuthentications", "password,keyboard-interactive")
-        session.serverAliveInterval = 15_000
-        session.connect(15_000)
-        val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
-        channel.setCommand(command)
-        val output = channel.inputStream
-        channel.connect(15_000)
-        val response = output.bufferedReader().readText()
-        while (!channel.isClosed) Thread.sleep(100L)
-        val code = channel.exitStatus
-        channel.disconnect()
-        session.disconnect()
-        if (code != 0 || !response.lineSequence().any { it == "OK" }) error("Update failed")
     }
 
     private fun requestVdsRemoval(host: String, user: String, port: Int) {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TERZAET</string>
-    <string name="version" translatable="false">1.0.4</string>
+    <string name="version" translatable="false">1.0.2</string>
 
     <string name="channel_name">VPN Service</string>
     <string name="notify_title">TERZAET running</string>

@@ -66,12 +66,6 @@ class VpnNotificationManager(private val service: Service) {
         handler.removeCallbacks(speedUpdater)
     }
 
-    fun clear() {
-        stopSpeedUpdates()
-        service.getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
-        service.getSystemService(NotificationManager::class.java)?.cancel(RECOVERY_NOTIFICATION_ID)
-    }
-
     fun updateContent(text: String) {
         val mgr = service.getSystemService(NotificationManager::class.java) ?: return
         mgr.notify(NOTIFICATION_ID, buildNotification(text))

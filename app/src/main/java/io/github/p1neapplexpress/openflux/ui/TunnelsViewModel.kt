@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.net.VpnService
 import android.os.Build
 import android.os.IBinder
 import androidx.lifecycle.AndroidViewModel
@@ -316,6 +317,24 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         val running = (_active.value as? TunnelState.Running)?.tunnel
         _tunnels.value = list.map { TunnelViewType(it, enabled = it == running) }
         _selected.value = repo.getSelected()
+    }
+
+    fun reconcileSystemState() {
+        if (_active.value is TunnelState.Idle) return
+        val app = getApplication<Application>()
+        val runtimeActive = app
+            .getSharedPreferences("vpn_runtime", Context.MODE_PRIVATE)
+            .getBoolean("active", false)
+        val vpnOwnershipLost = VpnService.prepare(app) != null
+        if (!runtimeActive || vpnOwnershipLost) {
+            app.stopService(Intent(app, SocksVpnService::class.java))
+            startJob?.cancel()
+            startJob = null
+            activeTunnelData = null
+            _active.value = TunnelState.Idle
+            stopUptimeCounter()
+            refresh()
+        }
     }
 
     fun selectTunnel(tunnel: Tunnel) {

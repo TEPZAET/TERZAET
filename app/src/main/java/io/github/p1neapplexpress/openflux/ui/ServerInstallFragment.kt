@@ -98,6 +98,7 @@ class ServerInstallFragment : BaseFragment() {
                 document = document.text.toString().trim(),
                 encryptionKey = encryption.text.toString().takeIf { encryptionSwitch.isChecked }.orEmpty(),
             )
+            if (!encryptionSwitch.isChecked) encryption.text.clear()
             if (!request.valid()) {
                 status.text = "Заполните название, IP, логин, пароль и ссылку на документ. Ключ можно оставить пустым."
                 return@setOnClickListener
@@ -148,7 +149,7 @@ class ServerInstallFragment : BaseFragment() {
                 vm.addTunnel(tunnel)
                 vm.selectTunnel(tunnel)
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_success)
-                status.text = "100% · Сервер установлен\n${installed.transportLabel}\nКлюч сервера: ${installed.fingerprint}"
+                status.text = "100% · Сервер установлен\n${installed.transportLabel}"
                 button.text = "Готово"
                 parentFragmentManager.beginTransaction()
                     .replace(R.id.main, MainFragment())

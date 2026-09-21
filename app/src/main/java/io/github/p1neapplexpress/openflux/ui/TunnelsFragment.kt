@@ -79,6 +79,11 @@ class TunnelsFragment : BaseFragment() {
     private lateinit var speedValue: TextView
     private lateinit var pingValue: TextView
     private var metricsJob: Job? = null
+
+    override fun onResume() {
+        super.onResume()
+        vm.reconcileSystemState()
+    }
     private var videoEnabled = true
     private var hapticsEnabled = true
     private var motionEnabled = true
@@ -269,7 +274,7 @@ class TunnelsFragment : BaseFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { vm.active.collect { applyState(it) } }
                 launch { vm.uptimeSeconds.collect { renderUptime(it) } }
-                launch { vm.pingMs.collect { value -> pingValue.text = if (vm.active.value is TunnelState.Running && value != null) "$value мс" else "—" } }
+                launch { vm.pingMs.collect { value -> pingValue.text = if (vm.active.value is TunnelState.Running && value != null) "$value" else "—" } }
                 launch { vm.selected.collect { renderSelected(it) } }
             }
         }
@@ -604,7 +609,7 @@ class TunnelsFragment : BaseFragment() {
 
             is TunnelState.Running -> {
                 startMetrics()
-                pingValue.text = vm.pingMs.value?.let { "$it мс" } ?: "—"
+                pingValue.text = vm.pingMs.value?.let { "$it" } ?: "—"
                 finishBackgroundVideoAndHold()
                 statusText.text = getString(R.string.running)
                 headerStatus.text = getString(R.string.running)
@@ -657,15 +662,19 @@ class TunnelsFragment : BaseFragment() {
             metricsJob = viewLifecycleOwner.lifecycleScope.launch {
                 var lastAt = SystemClock.elapsedRealtime()
                 var lastBytes = TrafficStats.getTotalRxBytes() + TrafficStats.getTotalTxBytes()
-                var smoothedMbps = 0.0
+                val samples = ArrayDeque<Pair<Long, Long>>()
                 while (isActive) {
                     delay(1_000L)
                     val now = SystemClock.elapsedRealtime()
                     val currentBytes = TrafficStats.getTotalRxBytes() + TrafficStats.getTotalTxBytes()
-                    val seconds = ((now - lastAt) / 1000.0).coerceAtLeast(0.2)
-                    val instantMbps = ((currentBytes - lastBytes).coerceAtLeast(0L) * 8.0) / seconds / 1_000_000.0
-                    smoothedMbps = if (smoothedMbps == 0.0) instantMbps else smoothedMbps * 0.65 + instantMbps * 0.35
-                    speedValue.text = String.format(Locale.US, "%.1f Мбит/с", smoothedMbps)
+                    if (currentBytes >= lastBytes) samples.addLast(now to currentBytes)
+                    while (samples.isNotEmpty() && now - samples.first().first > 60_000L) samples.removeFirst()
+                    val first = samples.firstOrNull()
+                    if (first != null) {
+                        val seconds = ((now - first.first) / 1000.0).coerceAtLeast(1.0)
+                        val averageMbps = ((currentBytes - first.second).coerceAtLeast(0L) * 8.0) / seconds / 1_000_000.0
+                        speedValue.text = String.format(Locale.US, "%.1f", averageMbps.coerceIn(0.0, 1000.0))
+                    }
                     lastAt = now
                     lastBytes = currentBytes
                 }

@@ -87,6 +87,7 @@ class SocksVpnService : android.net.VpnService() {
 
                 if (ok) {
                     vpn.isRunning.set(true)
+                    getSharedPreferences("vpn_runtime", MODE_PRIVATE).edit().putBoolean("active", true).apply()
                     notifications.startSpeedUpdates()
                     EventBus.dispatch(AppEvent.LogMessage("[I] tun2socks running"))
                     Logx.i(TAG, "tun2socks running")
@@ -293,6 +294,7 @@ class SocksVpnService : android.net.VpnService() {
         runCatching { StaleProcesses.kill(applicationInfo.nativeLibraryDir) }
         lastIntent = null
         shutdownComplete.set(true)
+        getSharedPreferences("vpn_runtime", MODE_PRIVATE).edit().putBoolean("active", false).apply()
         notifications.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

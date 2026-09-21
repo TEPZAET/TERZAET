@@ -25,8 +25,8 @@
             android:layout_weight="1" android:gravity="center" android:text="CLEAR" android:textColor="@color/text_secondary"
             android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1" android:background="?attr/selectableItemBackground" />
         <View android:layout_width="1dp" android:layout_height="20dp" android:background="#D9DBDE" />
-        <TextView android:id="@+id/btn_autoscroll" android:layout_width="0dp" android:layout_height="match_parent"
-            android:layout_weight="1" android:gravity="center" android:text="AUTO-SCROLL" android:textColor="@color/text_secondary"
+        <TextView android:id="@+id/btn_export" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center" android:text="ЭКСПОРТ" android:textColor="@color/text_secondary"
             android:textSize="11sp" android:letterSpacing="0.06" android:background="?attr/selectableItemBackground" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -27,6 +27,7 @@ import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.TransportType
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelPayload
+import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -145,6 +146,7 @@ class ServerInstallFragment : BaseFragment() {
                     adminHost = request.host,
                     adminUser = request.user,
                     adminPort = request.port,
+                    serverRevision = ServerRelease.REVISION,
                 )
                 vm.addTunnel(tunnel)
                 vm.selectTunnel(tunnel)

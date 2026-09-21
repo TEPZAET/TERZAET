@@ -12,6 +12,7 @@ import android.media.MediaMetadataRetriever
 import android.net.TrafficStats
 import android.os.SystemClock
 import android.os.Bundle
+import android.content.res.ColorStateList
 import android.view.HapticFeedbackConstants
 import android.view.GestureDetector
 import android.view.LayoutInflater
@@ -43,6 +44,7 @@ import io.github.g00fy2.quickie.QRResult
 import io.github.g00fy2.quickie.ScanQRCode
 import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.Tunnel
+import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.data.TunnelState
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import io.github.p1neapplexpress.openflux.ui.widget.AuroraView
@@ -197,11 +199,16 @@ class TunnelsFragment : BaseFragment() {
             if (hapticsEnabled) it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             animatePress(it)
             when (vm.active.value) {
-                is TunnelState.Running -> vm.stop()
+                is TunnelState.Running,
+                is TunnelState.Connecting,
+                is TunnelState.StartingTransport,
+                is TunnelState.StartingTun2Socks,
+                is TunnelState.Checking,
+                is TunnelState.Restoring -> vm.stop()
                 is TunnelState.Idle, is TunnelState.Error, is TunnelState.Unavailable -> {
                     if (vm.selected.value == null) openManualSetup() else requestVpnAndStart()
                 }
-                else -> Unit
+                is TunnelState.Stopping -> Unit
             }
         }
 
@@ -318,7 +325,12 @@ class TunnelsFragment : BaseFragment() {
             val row = layoutInflater.inflate(R.layout.item_server_manage, content, false)
             val isActive = vm.active.value.isActive && vm.active.value.tunnel?.id == tunnel.id
             row.findViewById<TextView>(R.id.serverName).text = tunnel.name
+            val updateAvailable = ServerRelease.updateAvailable(tunnel)
+            row.findViewById<View>(R.id.serverDot).backgroundTintList = if (updateAvailable) {
+                ColorStateList.valueOf(android.graphics.Color.parseColor("#E5B642"))
+            } else null
             row.findViewById<TextView>(R.id.serverType).text = when {
+                updateAvailable -> "Доступно обновление сервера"
                 isActive -> "Используется сейчас"
                 tunnel.id == vm.selectedTunnelId -> "Выбран"
                 else -> tunnel.transportType
@@ -548,7 +560,7 @@ class TunnelsFragment : BaseFragment() {
                 }
                 statusText.text = label
                 headerStatus.text = label
-                connectLabel.text = "Подождите…"
+                connectLabel.text = "Отменить"
                 statusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                 crossFadeStatus()
                 aurora.setIntensity(0f)
@@ -581,7 +593,7 @@ class TunnelsFragment : BaseFragment() {
                 val label = if (state.attempt == 0) "Ожидаем сеть…" else "Восстанавливаем…"
                 statusText.text = label
                 headerStatus.text = label
-                connectLabel.text = label
+                connectLabel.text = getString(R.string.disconnect)
                 statusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                 crossFadeStatus()
                 aurora.setIntensity(0.15f)
@@ -594,8 +606,8 @@ class TunnelsFragment : BaseFragment() {
 
             is TunnelState.Unavailable -> {
                 stopMetrics()
-                statusText.text = "Сервер недоступен"
-                headerStatus.text = "Сервер недоступен"
+                statusText.text = "Сервер не отвечает. Проверьте интернет или выберите другой сервер."
+                headerStatus.text = "Сервер не отвечает · выберите другой"
                 connectLabel.text = "Повторить"
                 statusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.state_error))
                 crossFadeStatus()
@@ -660,22 +672,21 @@ class TunnelsFragment : BaseFragment() {
     private fun startMetrics() {
         if (metricsJob?.isActive != true) {
             metricsJob = viewLifecycleOwner.lifecycleScope.launch {
-                var lastAt = SystemClock.elapsedRealtime()
-                var lastBytes = TrafficStats.getTotalRxBytes() + TrafficStats.getTotalTxBytes()
-                val samples = ArrayDeque<Pair<Long, Long>>()
+                var lastBytes = TrafficStats.getUidRxBytes(android.os.Process.myUid()) + TrafficStats.getUidTxBytes(android.os.Process.myUid())
+                val activeSamples = ArrayDeque<Pair<Long, Long>>()
+                var displayedMbps = 0.0
                 while (isActive) {
                     delay(1_000L)
                     val now = SystemClock.elapsedRealtime()
-                    val currentBytes = TrafficStats.getTotalRxBytes() + TrafficStats.getTotalTxBytes()
-                    if (currentBytes >= lastBytes) samples.addLast(now to currentBytes)
-                    while (samples.isNotEmpty() && now - samples.first().first > 60_000L) samples.removeFirst()
-                    val first = samples.firstOrNull()
-                    if (first != null) {
-                        val seconds = ((now - first.first) / 1000.0).coerceAtLeast(1.0)
-                        val averageMbps = ((currentBytes - first.second).coerceAtLeast(0L) * 8.0) / seconds / 1_000_000.0
-                        speedValue.text = String.format(Locale.US, "%.1f", averageMbps.coerceIn(0.0, 1000.0))
+                    val currentBytes = TrafficStats.getUidRxBytes(android.os.Process.myUid()) + TrafficStats.getUidTxBytes(android.os.Process.myUid())
+                    val delta = (currentBytes - lastBytes).coerceAtLeast(0L)
+                    if (delta >= 4_096L) activeSamples.addLast(now to delta)
+                    while (activeSamples.isNotEmpty() && now - activeSamples.first().first > 60_000L) activeSamples.removeFirst()
+                    if (activeSamples.isNotEmpty()) {
+                        val activeMbps = activeSamples.sumOf { it.second } * 8.0 / activeSamples.size / 1_000_000.0
+                        displayedMbps = if (displayedMbps == 0.0) activeMbps else displayedMbps * 0.7 + activeMbps * 0.3
+                        speedValue.text = String.format(Locale.US, "%.1f", displayedMbps.coerceIn(0.0, 999.9))
                     }
-                    lastAt = now
                     lastBytes = currentBytes
                 }
             }

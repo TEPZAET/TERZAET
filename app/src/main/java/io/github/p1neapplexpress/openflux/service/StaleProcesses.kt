@@ -12,7 +12,7 @@ import java.io.File
 object StaleProcesses {
 
     private const val TAG = "StaleProcesses"
-    private val BINARIES = listOf(NativeProcessSupervisor.NATIVE_LIB, "libtun2socks.so", "libpdnsd.so")
+    private val BINARIES = listOf(NativeProcessSupervisor.NATIVE_LIB, HysteriaSupervisor.NATIVE_LIB, "libtun2socks.so", "libpdnsd.so")
 
     fun kill(nativeLibraryDir: String) {
         val targets = BINARIES.map { "$nativeLibraryDir/$it" }.toSet()

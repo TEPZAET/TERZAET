@@ -6,6 +6,7 @@ object SafeLog {
     private val address = Regex("(?<![A-Za-z0-9])[A-Fa-f0-9:.]{3,}:[0-9]{1,5}")
     private val ipv4 = Regex("(?<![A-Za-z0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![A-Za-z0-9])")
     private val secret = Regex("(?i)(password|token|secret|key|url)\\s*[=:]\\s*\\S+")
+    private val hysteriaUri = Regex("(?i)hysteria2(?:\\+realm)?://\\S+")
 
     fun message(raw: String): String {
         val lower = raw.lowercase(Locale.ROOT)
@@ -28,6 +29,7 @@ object SafeLog {
 
     private fun sanitize(raw: String): String = raw
         .replace(secret, "\$1: скрыто")
+        .replace(hysteriaUri, "Hysteria 2: скрыто")
         .replace(address, "адрес скрыт")
         .replace(ipv4, "IP скрыт")
         .replace(Regex("\\[[^]]{1,32}]"), "")

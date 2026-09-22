@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.p1neapplexpress.openflux.IUnifiedService
 import io.github.p1neapplexpress.openflux.data.Tunnel
+import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.TunnelRepository
 import io.github.p1neapplexpress.openflux.data.TunnelState
 import io.github.p1neapplexpress.openflux.data.TunnelViewType
@@ -187,11 +188,22 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
 
             _active.value = TunnelState.StartingTransport(tunnel)
             try {
-                service?.startOpenFluxNative(
-                    tunnel.transportType,
-                    tunnel.transportConnPayload.toTypedArray(),
-                    tunnel.encryptionKey,
-                )
+                val mode = ConnectionMode.from(tunnel.connectionMode)
+                val hysteriaUri = tunnel.hysteriaUri
+                if (mode != ConnectionMode.yandex && !hysteriaUri.isNullOrBlank()) {
+                    service?.startHysteriaNative(
+                        hysteriaUri,
+                        tunnel.transportConnPayload.toTypedArray(),
+                        tunnel.encryptionKey,
+                        mode == ConnectionMode.auto && tunnel.autoFallback,
+                    )
+                } else {
+                    service?.startOpenFluxNative(
+                        tunnel.transportType,
+                        tunnel.transportConnPayload.toTypedArray(),
+                        tunnel.encryptionKey,
+                    )
+                }
             } catch (e: Exception) {
                 fail("TR-201", "Не удалось запустить транспорт: ${e.message}")
                 return@launch
@@ -379,6 +391,16 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         if (idx < 0) return
         current[idx] = new
         repo.save(current)
+        refresh()
+    }
+
+    fun setConnectionMode(tunnel: Tunnel, mode: ConnectionMode) {
+        val current = repo.load().toMutableList()
+        val index = current.indexOfFirst { it.id == tunnel.id }
+        if (index < 0) return
+        current[index] = tunnel.copy(connectionMode = mode.name)
+        repo.save(current)
+        _selected.value = current[index]
         refresh()
     }
 

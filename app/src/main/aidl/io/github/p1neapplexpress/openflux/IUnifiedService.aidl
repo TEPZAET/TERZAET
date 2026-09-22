@@ -11,6 +11,7 @@ interface IUnifiedService {
     String  nativeError();
     void    stopOpenFluxNative();
     void    startOpenFluxNative(String transport, in String[] args, String encryptionKey);
+    void    startHysteriaNative(String uri, in String[] fallbackArgs, String fallbackEncryptionKey, boolean allowFallback);
     void    startTun2Socks();
     int     getFd();
 }

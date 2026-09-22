@@ -33,6 +33,7 @@ class SocksVpnService : android.net.VpnService() {
 
     private lateinit var vpn: VpnServiceController
     private lateinit var supervisor: NativeProcessSupervisor
+    private lateinit var hysteria: HysteriaSupervisor
     private lateinit var tun2socks: Tun2SocksLauncher
     private lateinit var notifications: VpnNotificationManager
 
@@ -45,6 +46,9 @@ class SocksVpnService : android.net.VpnService() {
     private var healthJob: Job? = null
     private var lastTransportArgs: List<String>? = null
     private var lastEncryptionKey: String? = null
+    private var lastHysteriaUri: String? = null
+    private var allowHysteriaFallback = false
+    private var activeBackend = Backend.YANDEX
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var networkRecoveryJob: Job? = null
     private var networkAvailable = false
@@ -52,11 +56,11 @@ class SocksVpnService : android.net.VpnService() {
     private val binder = object : IUnifiedService.Stub() {
         override fun isVpnRunning(): Boolean = vpn.isRunning.get()
         override fun isShutdownComplete(): Boolean = shutdownComplete.get()
-        override fun measureDataPathLatency(): Long = supervisor.measureDataPathLatency()
+        override fun measureDataPathLatency(): Long = activeLatency()
         override fun stopVpn() = stopEverything()
-        override fun isFServiceRunning(): Boolean = supervisor.isReady
-        override fun nativeError(): String? = supervisor.error
-        override fun stopOpenFluxNative() = supervisor.stop()
+        override fun isFServiceRunning(): Boolean = activeReady()
+        override fun nativeError(): String? = activeError()
+        override fun stopOpenFluxNative() = stopClients()
 
         override fun startOpenFluxNative(transport: String?, args: Array<String>, encryptionKey: String?) {
             transport ?: return
@@ -64,8 +68,25 @@ class SocksVpnService : android.net.VpnService() {
             stopping.set(false)
             lastTransportArgs = args.toList()
             lastEncryptionKey = encryptionKey
+            lastHysteriaUri = null
+            allowHysteriaFallback = false
+            activeBackend = Backend.YANDEX
             sessionGeneration.incrementAndGet()
+            hysteria.stop()
             supervisor.start(args.toList(), encryptionKey)
+        }
+
+        override fun startHysteriaNative(uri: String, fallbackArgs: Array<String>, fallbackEncryptionKey: String?, allowFallback: Boolean) {
+            shutdownComplete.set(false)
+            stopping.set(false)
+            lastHysteriaUri = uri
+            lastTransportArgs = fallbackArgs.toList()
+            lastEncryptionKey = fallbackEncryptionKey
+            allowHysteriaFallback = allowFallback && fallbackArgs.isNotEmpty()
+            activeBackend = Backend.HYSTERIA
+            sessionGeneration.incrementAndGet()
+            supervisor.stop()
+            hysteria.start(uri)
         }
 
         override fun startTun2Socks() {
@@ -82,7 +103,7 @@ class SocksVpnService : android.net.VpnService() {
 
                 val ok = tun2socks.start(
                     fd = fd,
-                    socksPort = supervisor.socksPort,
+                    socksPort = activeSocksPort(),
                     username = i.getStringExtra(Constants.INTENT_USERNAME),
                     password = i.getStringExtra(Constants.INTENT_PASSWORD),
                     ipv6 = i.getBooleanExtra(Constants.INTENT_IPV6_PROXY, false),
@@ -115,6 +136,17 @@ class SocksVpnService : android.net.VpnService() {
             if (reconnecting.get()) {
                 Logx.w(TAG, "transport restart attempt failed: $message")
             } else {
+                stopEverything()
+                EventBus.dispatch(AppEvent.NativeProcessExited(message))
+            }
+        }
+        hysteria = HysteriaSupervisor(applicationContext, { fd -> protect(fd) }) { message ->
+            if (allowHysteriaFallback && !stopping.get() && lastTransportArgs?.isNotEmpty() == true) {
+                EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 недоступна · переключаемся на Яндекс"))
+                activeBackend = Backend.YANDEX
+                hysteria.stop()
+                supervisor.start(lastTransportArgs.orEmpty(), lastEncryptionKey)
+            } else if (!reconnecting.get()) {
                 stopEverything()
                 EventBus.dispatch(AppEvent.NativeProcessExited(message))
             }
@@ -184,7 +216,7 @@ class SocksVpnService : android.net.VpnService() {
                     recoverTransport("сеть снова доступна")
                     continue
                 }
-                val latency = supervisor.measureDataPathLatency(4_000)
+                val latency = activeLatency(4_000)
                 EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.CHECKING))
                 if (latency >= 0L) {
                     failures = 0
@@ -206,7 +238,7 @@ class SocksVpnService : android.net.VpnService() {
         val wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:recovery")
         runCatching { wakeLock?.acquire(90_000L) }
         try {
-            val args = lastTransportArgs ?: return
+            if (lastTransportArgs == null && lastHysteriaUri == null) return
             notifications.stopSpeedUpdates()
             notifications.updateContent("Связь потеряна · восстанавливаем…")
             EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORING))
@@ -216,14 +248,19 @@ class SocksVpnService : android.net.VpnService() {
                 if (stopping.get() || expectedGeneration != sessionGeneration.get()) break
                 runCatching { tun2socks.stop() }
                 vpn.isRunning.set(false)
-                runCatching { supervisor.stop() }
+                stopClients()
                 delay((1_000L shl (attempt - 1)).coerceAtMost(8_000L))
-                supervisor.start(args, lastEncryptionKey)
+                if (activeBackend == Backend.HYSTERIA && !lastHysteriaUri.isNullOrBlank()) {
+                    hysteria.start(lastHysteriaUri!!)
+                } else {
+                    activeBackend = Backend.YANDEX
+                    supervisor.start(lastTransportArgs.orEmpty(), lastEncryptionKey)
+                }
                 val deadline = System.currentTimeMillis() + 45_000L
-                while (!supervisor.isReady && supervisor.error == null && System.currentTimeMillis() < deadline && !stopping.get() && expectedGeneration == sessionGeneration.get()) {
+                while (!activeReady() && activeError() == null && System.currentTimeMillis() < deadline && !stopping.get() && expectedGeneration == sessionGeneration.get()) {
                     delay(250L)
                 }
-                if (supervisor.isReady && supervisor.measureDataPathLatency(5_000) >= 0L) {
+                if (activeReady() && activeLatency(5_000) >= 0L) {
                     binder.startTun2Socks()
                     restored = vpn.isRunning.get()
                     if (restored) break
@@ -300,7 +337,7 @@ class SocksVpnService : android.net.VpnService() {
         reconnecting.set(false)
         notifications.stopSpeedUpdates()
         runCatching { tun2socks.stop() }
-        runCatching { supervisor.stop() }
+        stopClients()
         runCatching { vpn.stop() }
         runCatching { StaleProcesses.kill(applicationInfo.nativeLibraryDir) }
         lastIntent = null
@@ -309,5 +346,24 @@ class SocksVpnService : android.net.VpnService() {
         notifications.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private enum class Backend { YANDEX, HYSTERIA }
+
+    private fun activeReady() = if (activeBackend == Backend.HYSTERIA) hysteria.isReady else supervisor.isReady
+
+    private fun activeError() = if (activeBackend == Backend.HYSTERIA) hysteria.error else supervisor.error
+
+    private fun activeLatency(timeoutMs: Int = 5_000) = if (activeBackend == Backend.HYSTERIA) {
+        hysteria.measureDataPathLatency(timeoutMs)
+    } else {
+        supervisor.measureDataPathLatency(timeoutMs)
+    }
+
+    private fun activeSocksPort() = if (activeBackend == Backend.HYSTERIA) hysteria.socksPort else supervisor.socksPort
+
+    private fun stopClients() {
+        runCatching { supervisor.stop() }
+        runCatching { hysteria.stop() }
     }
 }

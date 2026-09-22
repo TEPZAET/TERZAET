@@ -15,10 +15,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.TransportType
+import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
 
 class ServersFragment : BaseFragment() {
@@ -59,6 +61,24 @@ class ServersFragment : BaseFragment() {
             row.findViewById<TextView>(R.id.serverType).text = if (updateAvailable) {
                 "Доступно обновление сервера"
             } else TransportType.from(tunnel.transportType).name
+            val selectedMode = ConnectionMode.from(tunnel.connectionMode)
+            val yandex = row.findViewById<MaterialButton>(R.id.serverYandex)
+            val hysteria = row.findViewById<MaterialButton>(R.id.serverHysteria)
+            setModeStyle(yandex, selectedMode == ConnectionMode.yandex || selectedMode == ConnectionMode.auto)
+            setModeStyle(hysteria, selectedMode == ConnectionMode.hysteria2)
+            hysteria.alpha = if (tunnel.hysteriaUri.isNullOrBlank()) 0.45f else 1f
+            yandex.setOnClickListener { vm.setConnectionMode(tunnel, ConnectionMode.yandex) }
+            hysteria.setOnClickListener {
+                if (tunnel.hysteriaUri.isNullOrBlank()) {
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Hysteria 2 ещё не настроена")
+                        .setMessage("Откройте изменение сервера и добавьте ссылку Hysteria 2. Яндекс Документ продолжит работать как основной транспорт.")
+                        .setPositiveButton("Понятно", null)
+                        .show()
+                } else {
+                    vm.setConnectionMode(tunnel, ConnectionMode.hysteria2)
+                }
+            }
             row.setOnClickListener { vm.selectTunnel(tunnel) }
             val active = vm.active.value.isActive && vm.active.value.tunnel?.id == tunnel.id
             row.findViewById<ImageButton>(R.id.serverEdit).apply {
@@ -71,6 +91,11 @@ class ServersFragment : BaseFragment() {
             }
             list.addView(row)
         }
+    }
+
+    private fun setModeStyle(button: MaterialButton, selected: Boolean) {
+        button.isChecked = selected
+        button.alpha = if (selected) 1f else 0.64f
     }
 
     private fun confirmDelete(tunnel: Tunnel) {

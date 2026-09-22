@@ -13,4 +13,7 @@ data class Tunnel(
     val adminUser: String? = null,
     val adminPort: Int? = null,
     val serverRevision: Int = 0,
+    val hysteriaUri: String? = null,
+    val connectionMode: String = ConnectionMode.auto.name,
+    val autoFallback: Boolean = true,
 )

@@ -68,6 +68,14 @@ class OnboardingFragment : BaseFragment() {
         button.setOnClickListener { next() }
         UiAppearance.apply(view)
         render(false)
+        card.alpha = 0f
+        card.translationY = 30.dp(card).toFloat()
+        card.scaleX = 0.98f
+        card.scaleY = 0.98f
+        card.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+            .setDuration(460L)
+            .setStartDelay(120L)
+            .start()
     }
 
     private fun next() {
@@ -113,7 +121,14 @@ class OnboardingFragment : BaseFragment() {
         if (!animated) { update(); return }
         card.animate().alpha(0f).translationY(14f).setDuration(150L).withEndAction {
             update()
-            card.animate().alpha(1f).translationY(0f).setDuration(320L).start()
+            title.alpha = 0f
+            title.translationY = 8.dp(title).toFloat()
+            text.alpha = 0f
+            text.translationY = 8.dp(text).toFloat()
+            card.animate().alpha(1f).translationY(0f).setDuration(260L).withEndAction {
+                title.animate().alpha(1f).translationY(0f).setDuration(230L).start()
+                text.animate().alpha(1f).translationY(0f).setStartDelay(55L).setDuration(230L).start()
+            }.start()
         }.start()
     }
 

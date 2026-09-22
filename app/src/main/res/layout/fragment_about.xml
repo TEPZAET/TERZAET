@@ -1,9 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@drawable/bg_screen_ambient" android:gravity="center_horizontal" android:orientation="vertical" android:padding="24dp" android:paddingTop="64dp">
-    <ImageView android:layout_width="104dp" android:layout_height="104dp" android:src="@drawable/terzaet_logo" android:contentDescription="@string/app_name" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="TERZAET" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
-    <TextView android:id="@+id/versionText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Версия" android:textColor="@color/text_secondary" android:textSize="13sp" />
-    <TextView android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:background="@drawable/glass_panel" android:padding="22dp"
-        android:text="TERZAET — независимый форк OpenFlux." android:textColor="@color/text_primary" android:textSize="14sp" android:lineSpacingExtra="4dp" />
-</LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_screen_ambient"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="32dp">
+
+        <ImageView
+            android:id="@+id/aboutLogo"
+            android:layout_width="92dp"
+            android:layout_height="92dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/terzaet_logo" />
+
+        <TextView
+            android:id="@+id/aboutTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:fontFamily="sans"
+            android:letterSpacing="0.08"
+            android:text="TERZAET"
+            android:textColor="@color/text_primary"
+            android:textSize="29sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/versionText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/glass_panel"
+            android:lineSpacingExtra="4dp"
+            android:padding="20dp"
+            android:text="TERZAET — независимый неофициальный форк OpenFluxAndroid/OpenFlux.\n\nВсе конфигурации хранятся на устройстве. Пароль от VDS не сохраняется."
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/glass_panel"
+            android:lineSpacingExtra="5dp"
+            android:padding="20dp"
+            android:text="Частые ошибки\n\nОшибка: сервер не отвечает\nРешение: проверьте оплату VDS, IP, SSH-порт и доступ VDS к интернету.\n\nОшибка: Яндекс запросил CAPTCHA\nРешение: это ограничение для IP сервера. Создайте новый документ или смените IP VDS.\n\nОшибка: VPN не запускается\nРешение: подтвердите системное разрешение VPN и выключите другой VPN.\n\nОшибка: не удалось войти на VDS\nРешение: проверьте логин, пароль и разрешён ли вход по SSH."
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+    </LinearLayout>
+</ScrollView>

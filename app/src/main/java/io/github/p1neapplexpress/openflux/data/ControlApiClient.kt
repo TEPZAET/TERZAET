@@ -37,6 +37,7 @@ class ControlApiClient(
     user: String,
     sshPort: Int,
     password: String,
+    knownHostsPath: String,
 ) : AutoCloseable {
     private val json = Json { ignoreUnknownKeys = true }
     private val session: Session
@@ -45,6 +46,7 @@ class ControlApiClient(
 
     init {
         val jsch = JSch()
+        jsch.setKnownHosts(knownHostsPath)
         session = jsch.getSession(user, host, sshPort)
         session.setPassword(password)
         session.setConfig("StrictHostKeyChecking", "ask")

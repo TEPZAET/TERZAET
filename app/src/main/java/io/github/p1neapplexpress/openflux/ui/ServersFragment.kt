@@ -53,6 +53,7 @@ class ServersFragment : BaseFragment() {
         items.forEach { tunnel ->
             val row = layoutInflater.inflate(R.layout.item_server_manage, list, false)
             row.findViewById<TextView>(R.id.serverName).text = tunnel.name
+            row.findViewById<TextView>(R.id.serverAddress).text = "${tunnel.adminHost} · SSH ${tunnel.adminPort ?: 22}"
             val updateAvailable = ServerRelease.updateAvailable(tunnel)
             row.findViewById<View>(R.id.serverDot).backgroundTintList = if (updateAvailable) {
                 ColorStateList.valueOf(android.graphics.Color.parseColor("#E5B642"))

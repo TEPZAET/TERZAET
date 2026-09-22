@@ -1,6 +1,8 @@
 package io.github.p1neapplexpress.openflux.ui
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.util.Base64
@@ -15,7 +17,6 @@ import androidx.fragment.app.activityViewModels
 import androidx.core.content.ContextCompat
 import androidx.viewpager2.widget.ViewPager2
 import androidx.lifecycle.lifecycleScope
-import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputLayout
@@ -41,6 +42,7 @@ import kotlin.random.Random
 import java.security.SecureRandom
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
 class ServerInstallFragment : BaseFragment() {
 
@@ -56,6 +58,8 @@ class ServerInstallFragment : BaseFragment() {
     private lateinit var screen: View
     private var stepIndex = 0
     private var pendingRequest: InstallRequest? = null
+    private var diagnostic: Pair<Preflight, DetectedInstall>? = null
+    private var readyTunnel: Tunnel? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, state: Bundle?) =
         inflater.inflate(R.layout.fragment_server_install, container, false)
@@ -82,6 +86,9 @@ class ServerInstallFragment : BaseFragment() {
         val encryptionSwitch = view.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch)
         val encryptionContainer = view.findViewById<View>(R.id.serverEncryptionContainer)
         val copyKey = view.findViewById<View>(R.id.copyEncryptionKey)
+        val diagnosticSpinner = view.findViewById<ProgressBar>(R.id.diagnosticSpinner)
+        val diagnosticProgress = view.findViewById<ProgressBar>(R.id.diagnosticProgress)
+        val diagnosticLoading = view.findViewById<TextView>(R.id.diagnosticLoading)
         view.findViewById<TextInputLayout>(R.id.serverDocumentContainer).setEndIconOnClickListener {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Как подготовить документ")
@@ -124,11 +131,28 @@ class ServerInstallFragment : BaseFragment() {
             )
             if (!encryptionSwitch.isChecked) encryption.text.clear()
             if (stepIndex == 3) {
-                requireActivity().findViewById<ViewPager2>(R.id.view_pager)?.setCurrentItem(0, true)
+                val tunnel = readyTunnel
+                val main = parentFragmentManager.fragments.filterIsInstance<MainFragment>().firstOrNull()
+                parentFragmentManager.popBackStack()
+                if (tunnel != null) Handler(Looper.getMainLooper()).postDelayed({ main?.testConnection(tunnel) }, 550L)
                 return@setOnClickListener
             }
             if (stepIndex == 1) {
-                setWizardStep(2)
+                val requestForDiagnostics = pendingRequest ?: return@setOnClickListener
+                val checks = diagnostic
+                if (checks == null) {
+                    screen.findViewById<ProgressBar>(R.id.diagnosticSpinner).isVisible = true
+                    screen.findViewById<ProgressBar>(R.id.diagnosticProgress).isVisible = true
+                    inspectThenInstall(requestForDiagnostics)
+                    return@setOnClickListener
+                }
+                val removeTerzaet = view.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeTerzaetCheck).isChecked
+                val removeOpenFlux = view.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeOpenFluxCheck).isChecked
+                if ((removeTerzaet && checks.second.terzaet) || (removeOpenFlux && checks.second.openFlux)) {
+                    removeSelectedThenInstall(requestForDiagnostics, removeTerzaet && checks.second.terzaet, removeOpenFlux && checks.second.openFlux)
+                } else {
+                    setWizardStep(2)
+                }
                 return@setOnClickListener
             }
             if (stepIndex == 2) {
@@ -149,8 +173,14 @@ class ServerInstallFragment : BaseFragment() {
                 status.text = "Заполните название, IP, логин и пароль VDS."
                 return@setOnClickListener
             }
-            password.text.clear()
             pendingRequest = request
+            password.text.clear()
+            setWizardStep(1)
+            diagnosticSpinner.isVisible = true
+            diagnosticProgress.isVisible = true
+            diagnosticLoading.text = "Подключаемся по SSH и собираем сведения. Обычно это занимает несколько секунд."
+            diagnosticLoading.animate().cancel()
+            diagnosticLoading.alpha = 1f
             inspectThenInstall(request)
         }
         UiAppearance.apply(view)
@@ -158,6 +188,7 @@ class ServerInstallFragment : BaseFragment() {
 
     private fun install(request: InstallRequest) {
         button.isEnabled = false
+        statusContainer.isVisible = true
         progress.visibility = View.VISIBLE
         spinner.visibility = View.VISIBLE
         progress.progress = 2
@@ -203,14 +234,15 @@ class ServerInstallFragment : BaseFragment() {
                 )
                 vm.addTunnel(tunnel)
                 vm.selectTunnel(tunnel)
-                statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_success)
-                status.text = if (installed.hysteriaUri != null) {
-                    "100% · Сервер установлен\n${installed.transportLabel} + Hysteria 2"
-                } else {
-                    "100% · Сервер установлен\n${installed.transportLabel}"
-                }
+                readyTunnel = tunnel
+                statusContainer.isVisible = false
+                val protocolSummary = buildList {
+                    if (request.installYandex) add("Яндекс Документы · ${installed.transportLabel}")
+                    if (installed.hysteriaUri != null) add("Hysteria 2 · готова")
+                    if (request.encryptionKey.isNotBlank()) add("Дополнительное шифрование включено")
+                }.joinToString("\n")
+                screen.findViewById<TextView>(R.id.readySummary).text = "${request.name}\n${request.host}\n\n$protocolSummary\n\nКонфигурация добавлена в приложение. Нажмите ниже, чтобы сразу запросить разрешение Android и проверить подключение."
                 setWizardStep(3)
-                status.text = "Сервер готов\nНажмите «Протестировать подключение»"
             }.onFailure { error ->
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(error)
@@ -220,8 +252,8 @@ class ServerInstallFragment : BaseFragment() {
 
     private fun inspectThenInstall(request: InstallRequest) {
         button.isEnabled = false
-        spinner.visibility = View.VISIBLE
-        status.text = "Проверка VDS…"
+        screen.findViewById<TextView>(R.id.diagnosticTitle).text = "Проверяем VDS"
+        screen.findViewById<TextView>(R.id.diagnosticLoading).text = "Проверяем систему, ресурсы, доступ в интернет и старые установки…"
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -230,39 +262,31 @@ class ServerInstallFragment : BaseFragment() {
                     check to found
                 }
             }
-            spinner.visibility = View.GONE
             button.isEnabled = true
             result.onFailure {
-                statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
-                status.text = friendlyError(it)
+                screen.findViewById<ProgressBar>(R.id.diagnosticSpinner).isVisible = false
+                screen.findViewById<ProgressBar>(R.id.diagnosticProgress).isVisible = false
+                screen.findViewById<TextView>(R.id.diagnosticTitle).text = "Не удалось завершить проверку"
+                screen.findViewById<TextView>(R.id.diagnosticLoading).text = friendlyError(it)
+                screen.findViewById<TextView>(R.id.diagnosticLoading).alpha = 1f
             }.onSuccess { (check, found) ->
-                status.text = "Аудит VDS завершён\n${check.os} · CPU ${check.cpu} · RAM ${check.ram} · диск ${check.freeGb} ГБ\nDocker ${if (check.dockerReady) "готов" else "будет установлен"} · HTTPS доступен"
-                if (!found.terzaet && !found.openFlux) {
-                    pendingRequest = request
-                    status.text = "Аудит завершён · конфликтов не найдено\nПроверьте протоколы на следующем шаге"
-                    setWizardStep(1)
-                    return@onSuccess
+                diagnostic = check to found
+                screen.findViewById<ProgressBar>(R.id.diagnosticSpinner).isVisible = false
+                screen.findViewById<ProgressBar>(R.id.diagnosticProgress).isVisible = false
+                screen.findViewById<TextView>(R.id.diagnosticTitle).text = "Сведения о сервере"
+                screen.findViewById<TextView>(R.id.diagnosticLoading).text = "Проверка завершена. Просмотрите параметры и выберите, что делать со старыми установками."
+                screen.findViewById<TextView>(R.id.diagnosticLoading).alpha = 1f
+                val data = screen.findViewById<TextView>(R.id.diagnosticData)
+                data.text = "${check.os}\nCPU: ${check.cpu} ядр.\nОЗУ: ${check.ram} всего · ${check.ramAvailable} свободно\nДиск /: ${check.diskUsed} занято · ${check.diskTotal} всего · ${check.freeGb} свободно\nDocker: ${if (check.dockerReady) "установлен" else "будет подготовлен установщиком"}\nМенеджер пакетов: ${if (check.packageManager) "найден" else "не найден"}\nHTTPS: ${if (check.https) "доступен" else "нет ответа — загрузка компонентов может не пройти"}"
+                data.isVisible = true
+                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeTerzaetCheck).apply { isVisible = found.terzaet; isChecked = found.terzaet }
+                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeOpenFluxCheck).apply { isVisible = found.openFlux; isChecked = found.openFlux }
+                screen.findViewById<TextView>(R.id.diagnosticAmnezia).apply {
+                    isVisible = found.amnezia
+                    text = "Amnezia обнаружена. Она останется без изменений."
                 }
-                val labels = buildList {
-                    if (found.terzaet) add("TERZAET: контейнер и /opt/terzaet")
-                    if (found.openFlux) add("OpenFlux: контейнер, служба и /opt/fluxglass")
-                }
-                val checked = BooleanArray(labels.size) { true }
-                MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("На VDS найдена предыдущая установка")
-                    .setMultiChoiceItems(labels.toTypedArray(), checked) { _, index, value -> checked[index] = value }
-                    .setNeutralButton("Оставить и продолжить") { _, _ ->
-                        pendingRequest = request
-                        setWizardStep(1)
-                    }
-                    .setNegativeButton(R.string.cancel, null)
-                    .setPositiveButton("Удалить выбранное") { _, _ ->
-                        var cursor = 0
-                        val removeTerzaet = found.terzaet && checked[cursor++]
-                        val removeOpenFlux = found.openFlux && checked[cursor]
-                        removeSelectedThenInstall(request, removeTerzaet, removeOpenFlux)
-                    }
-                    .show()
+                if (!found.terzaet && !found.openFlux && !found.amnezia) screen.findViewById<TextView>(R.id.diagnosticLoading).text = "Проверка завершена. Старые компоненты не найдены."
+                button.text = if (found.terzaet || found.openFlux) "Удалить выбранное и далее" else "Далее: протоколы"
             }
         }
     }
@@ -286,22 +310,24 @@ class ServerInstallFragment : BaseFragment() {
             "d=0; p=0; h=0; " +
                 "command -v docker >/dev/null 2>&1 && d=1 || true; " +
                 "(command -v apt-get >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v apk >/dev/null 2>&1) && p=1 || true; " +
-                "f=\$(df -Pk / | awk 'NR==2 {print \$4}'); " +
+                "f=\$(df -Pk / | awk 'NR==2 {print \$4}'); total=\$(df -Pk / | awk 'NR==2 {print \$2}'); used=\$(df -Pk / | awk 'NR==2 {print \$3}'); " +
                 "(curl -fsI --max-time 12 https://disk.yandex.ru >/dev/null 2>&1 || wget -q --spider -T 12 https://disk.yandex.ru >/dev/null 2>&1) && h=1 || true; " +
-                "cpu=\$(nproc 2>/dev/null || echo '?'); ram=\$(awk '/MemTotal/ {printf \"%.1fG\", \$2/1048576}' /proc/meminfo 2>/dev/null || echo '?'); os=\$(. /etc/os-release 2>/dev/null && printf '%s' \"\$PRETTY_NAME\" || uname -s); printf 'DOCKER=%s PACKAGE=%s FREE=%s HTTPS=%s CPU=%s RAM=%s OS=%s' \"\$d\" \"\$p\" \"\$f\" \"\$h\" \"\$cpu\" \"\$ram\" \"\$os\""
+                "cpu=\$(nproc 2>/dev/null || echo '?'); ram=\$(awk '/MemTotal/ {printf \"%.1fG\", \$2/1048576}' /proc/meminfo 2>/dev/null || echo '?'); avail=\$(awk '/MemAvailable/ {printf \"%.1fG\", \$2/1048576}' /proc/meminfo 2>/dev/null || echo '?'); os=\$(. /etc/os-release 2>/dev/null && printf '%s' \"\$PRETTY_NAME\" || uname -s); printf 'DOCKER=%s PACKAGE=%s FREE=%s HTTPS=%s CPU=%s RAM=%s AVAILABLE=%s TOTAL=%s USED=%s OS=%s' \"\$d\" \"\$p\" \"\$f\" \"\$h\" \"\$cpu\" \"\$ram\" \"\$avail\" \"\$total\" \"\$used\" \"\$os\""
         )
         val docker = output.contains("DOCKER=1")
         val packageManager = output.contains("PACKAGE=1")
         val https = output.contains("HTTPS=1")
         val freeKb = Regex("FREE=(\\d+)").find(output)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
-        if (!docker && !packageManager) error("PREFLIGHT_DOCKER")
-        if (freeKb < 1_048_576L) error("PREFLIGHT_SPACE")
-        if (!https) error("PREFLIGHT_HTTPS")
         val cpu = Regex("CPU=([^ ]+)").find(output)?.groupValues?.get(1) ?: "?"
         val ram = Regex("RAM=([^ ]+)").find(output)?.groupValues?.get(1) ?: "?"
+        val available = Regex("AVAILABLE=([^ ]+)").find(output)?.groupValues?.get(1) ?: "?"
+        val diskTotal = Regex("TOTAL=(\\d+)").find(output)?.groupValues?.get(1)?.toLongOrNull()
+        val diskUsed = Regex("USED=(\\d+)").find(output)?.groupValues?.get(1)?.toLongOrNull()
         val os = Regex("OS=(.+)$").find(output)?.groupValues?.get(1)?.trim() ?: "Linux"
-        Preflight(docker, freeKb / 1_048_576L, cpu, ram, os)
+        Preflight(docker, formatDisk(freeKb), cpu, ram, available, diskTotal?.let(::formatDisk) ?: "?", diskUsed?.let(::formatDisk) ?: "?", os, https, packageManager)
     }
+
+    private fun formatDisk(kilobytes: Long) = String.format(Locale.US, "%.1f ГБ", kilobytes / 1_048_576.0)
 
     private fun removeSelectedThenInstall(request: InstallRequest, terzaet: Boolean, openFlux: Boolean) {
         if (!terzaet && !openFlux) {
@@ -309,19 +335,26 @@ class ServerInstallFragment : BaseFragment() {
             return
         }
         button.isEnabled = false
-        spinner.visibility = View.VISIBLE
-        status.text = "Удаление выбранных компонентов…"
+        screen.findViewById<ProgressBar>(R.id.diagnosticSpinner).isVisible = true
+        screen.findViewById<ProgressBar>(R.id.diagnosticProgress).isVisible = true
+        screen.findViewById<TextView>(R.id.diagnosticTitle).text = "Удаляем выбранные установки"
+        screen.findViewById<TextView>(R.id.diagnosticLoading).text = "Удаляем только TERZAET или OpenFlux. Amnezia останется нетронутой."
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) { removeDetected(request, terzaet, openFlux) }
-            spinner.visibility = View.GONE
+            screen.findViewById<ProgressBar>(R.id.diagnosticSpinner).isVisible = false
+            screen.findViewById<ProgressBar>(R.id.diagnosticProgress).isVisible = false
             button.isEnabled = true
             result.onSuccess {
                 pendingRequest = request
-                status.text = "Аудит завершён · старые компоненты удалены\nПроверьте протоколы на следующем шаге"
+                diagnostic = diagnostic?.let { it.first to DetectedInstall(false, false, it.second.amnezia) }
+                screen.findViewById<TextView>(R.id.diagnosticLoading).text = "Выбранные старые компоненты удалены. Остальные настройки VDS не затронуты."
+                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeTerzaetCheck).isVisible = false
+                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeOpenFluxCheck).isVisible = false
+                screen.findViewById<TextView>(R.id.diagnosticAmnezia).isVisible = false
                 setWizardStep(1)
             }.onFailure {
-                statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
-                status.text = friendlyError(it)
+                screen.findViewById<TextView>(R.id.diagnosticTitle).text = "Не удалось удалить выбранную установку"
+                screen.findViewById<TextView>(R.id.diagnosticLoading).text = friendlyError(it)
             }
         }
     }
@@ -332,11 +365,25 @@ class ServerInstallFragment : BaseFragment() {
         wizardStep.text = labels[stepIndex]
         button.text = when (stepIndex) {
             0 -> "Далее: проверить сервер"
-            1 -> "Далее: выбрать протоколы"
+            1 -> if (diagnostic == null) "Повторить диагностику" else if (diagnostic?.second?.let { it.terzaet || it.openFlux } == true) "Удалить выбранное и далее" else "Далее: протоколы"
             2 -> "Развернуть и настроить"
             else -> "Протестировать подключение"
         }
         val connectionVisible = stepIndex == 0
+        screen.findViewById<View>(R.id.serverConnectionCard).isVisible = connectionVisible
+        screen.findViewById<View>(R.id.serverDiagnosticCard).isVisible = stepIndex == 1
+        screen.findViewById<View>(R.id.serverProtocolCard).isVisible = stepIndex == 2
+        screen.findViewById<View>(R.id.serverReadyCard).isVisible = stepIndex == 3
+        val currentCard = when (stepIndex) {
+            0 -> screen.findViewById<View>(R.id.serverConnectionCard)
+            1 -> screen.findViewById<View>(R.id.serverDiagnosticCard)
+            2 -> screen.findViewById<View>(R.id.serverProtocolCard)
+            else -> screen.findViewById<View>(R.id.serverReadyCard)
+        }
+        currentCard.animate().cancel()
+        currentCard.alpha = 0f
+        currentCard.translationY = 10f * resources.displayMetrics.density
+        currentCard.animate().alpha(1f).translationY(0f).setDuration(240L).start()
         screen.findViewById<View>(R.id.serverNameContainer).isVisible = connectionVisible
         screen.findViewById<View>(R.id.serverHostContainer).isVisible = connectionVisible
         screen.findViewById<View>(R.id.serverUserRow).isVisible = connectionVisible
@@ -349,14 +396,15 @@ class ServerInstallFragment : BaseFragment() {
         screen.findViewById<View>(R.id.serverEncryptionSwitch).isVisible = protocolsVisible && yandexEnabled
         screen.findViewById<View>(R.id.serverEncryptionContainer).isVisible = protocolsVisible && yandexEnabled && screen.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch).isChecked
         screen.findViewById<View>(R.id.copyEncryptionKey).isVisible = protocolsVisible && yandexEnabled && screen.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch).isChecked
-        statusContainer.isVisible = stepIndex != 0
+        statusContainer.isVisible = false
         progress.isVisible = stepIndex == 2 && progress.progress > 0
+        status.text = ""
     }
 
     private fun detectExisting(request: InstallRequest): Result<DetectedInstall> = runCatching {
         val output = runSshCommand(
             request,
-            "t=0; o=0; " +
+            "t=0; o=0; a=0; " +
                 "docker inspect terzaet-yandex >/dev/null 2>&1 && t=1 || true; " +
                 "docker inspect terzaet-hysteria >/dev/null 2>&1 && t=1 || true; " +
                 "[ -d /opt/terzaet ] && t=1; " +
@@ -365,9 +413,11 @@ class ServerInstallFragment : BaseFragment() {
                 "[ -d /opt/fluxglass ] && o=1; " +
                 "systemctl cat openflux-yandex.service >/dev/null 2>&1 && o=1 || true; " +
                 "[ -x /usr/local/bin/openflux ] && o=1; " +
-                "printf 'TERZAET=%s OPENFLUX=%s' \"\$t\" \"\$o\""
+                "docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qi amnezia && a=1 || true; " +
+                "systemctl list-unit-files 2>/dev/null | grep -qi amnezia && a=1 || true; " +
+                "printf 'TERZAET=%s OPENFLUX=%s AMNEZIA=%s' \"\$t\" \"\$o\" \"\$a\""
         )
-        DetectedInstall(output.contains("TERZAET=1"), output.contains("OPENFLUX=1"))
+        DetectedInstall(output.contains("TERZAET=1"), output.contains("OPENFLUX=1"), output.contains("AMNEZIA=1"))
     }
 
     private fun removeDetected(request: InstallRequest, terzaet: Boolean, openFlux: Boolean): Result<Unit> = runCatching {
@@ -427,17 +477,16 @@ class ServerInstallFragment : BaseFragment() {
         val encodedUrl = Base64.encodeToString(request.document.toByteArray(), Base64.NO_WRAP)
         val encodedKey = Base64.encodeToString(request.encryptionKey.toByteArray(), Base64.NO_WRAP)
         val encodedHost = Base64.encodeToString(request.host.toByteArray(), Base64.NO_WRAP)
-        val command = "export TERZAET_INSTALL_DIR=/opt/terzaet; " +
+        val stages = mutableListOf<String>()
+        stages += "export TERZAET_INSTALL_DIR=/opt/terzaet; " +
             "export TERZAET_DOC_URL=\$(printf %s '$encodedUrl' | base64 -d); " +
             "export TERZAET_ENCRYPTION_KEY=\$(printf %s '$encodedKey' | base64 -d); " +
             "export TERZAET_HY_HOST=\$(printf %s '$encodedHost' | base64 -d); " +
-            "rm -f /tmp/terzaet-install.sh /tmp/terzaet-hysteria-install.sh; " +
-            (if (request.installYandex) "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && sh /tmp/terzaet-install.sh 2>&1" else "true") +
-            if (request.installHysteria) {
-                (if (request.installYandex) " && " else "") + "printf 'PROGRESS=93|Настраиваем Hysteria 2\\n' && " +
-                    "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-hysteria2.sh -o /tmp/terzaet-hysteria-install.sh && " +
-                    "sh /tmp/terzaet-hysteria-install.sh 2>&1"
-            } else ""
+            "rm -f /tmp/terzaet-install.sh /tmp/terzaet-hysteria-install.sh"
+        if (request.installYandex) stages += "export TERZAET_REF=feature/hysteria2-fallback; curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && sh /tmp/terzaet-install.sh 2>&1"
+        if (request.installHysteria) stages += "printf 'PROGRESS=93|Настраиваем Hysteria 2\\n' && curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-hysteria2.sh -o /tmp/terzaet-hysteria-install.sh && sh /tmp/terzaet-hysteria-install.sh 2>&1"
+        stages += "printf 'PROGRESS=96|Настраиваем управление пользователями\\n' && curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-control-api.sh -o /tmp/terzaet-control-install.sh && sh /tmp/terzaet-control-install.sh 2>&1"
+        val command = stages.joinToString(" && ")
         val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
         channel.setCommand(command)
         val errors = ByteArrayOutputStream()
@@ -551,8 +600,8 @@ class ServerInstallFragment : BaseFragment() {
         val transportLabel: String get() = if (transport == "vyandex") "новый Яндекс Документ" else "классический Яндекс Документ"
     }
 
-    private data class DetectedInstall(val terzaet: Boolean, val openFlux: Boolean)
-    private data class Preflight(val dockerReady: Boolean, val freeGb: Long, val cpu: String, val ram: String, val os: String)
+    private data class DetectedInstall(val terzaet: Boolean, val openFlux: Boolean, val amnezia: Boolean)
+    private data class Preflight(val dockerReady: Boolean, val freeGb: String, val cpu: String, val ram: String, val ramAvailable: String, val diskTotal: String, val diskUsed: String, val os: String, val https: Boolean, val packageManager: Boolean)
 
     private class FirstUseInfo(private val password: String) : UserInfo, UIKeyboardInteractive {
         override fun getPassword() = password

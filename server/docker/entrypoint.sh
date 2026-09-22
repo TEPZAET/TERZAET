@@ -31,7 +31,7 @@ case "$transport" in
 esac
 
 if [ "$role" = control ]; then
-  exec terzaet-control --listen "${CONTROL_LISTEN:-127.0.0.1:8787}" \
+  exec terzaet-control --listen "${CONTROL_LISTEN:-0.0.0.0:8787}" \
     --data "${CONTROL_DATA:-/opt/terzaet-control/users.json}" \
     --secret "${CONTROL_SECRET:-/opt/terzaet-control/signing.key}" \
     --token-file "${CONTROL_TOKEN_FILE:-/opt/terzaet-control/admin.token}"

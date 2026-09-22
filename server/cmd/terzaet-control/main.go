@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	listen := flag.String("listen", "127.0.0.1:8787", "local control address")
+	listen := flag.String("listen", "0.0.0.0:8787", "local control address")
 	data := flag.String("data", "/opt/terzaet/control/users.json", "users database")
 	secret := flag.String("secret", "/opt/terzaet/control/signing.key", "bundle signing secret")
 	tokenFile := flag.String("token-file", "/opt/terzaet/control/admin.token", "admin token file")

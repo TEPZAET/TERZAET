@@ -25,6 +25,26 @@ install_openssl() {
   fi
 }
 
+install_docker() {
+  if ! command -v docker >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update -y && apt-get install -y docker.io
+    elif command -v dnf >/dev/null 2>&1; then
+      dnf install -y docker
+    elif command -v yum >/dev/null 2>&1; then
+      yum install -y docker
+    elif command -v apk >/dev/null 2>&1; then
+      apk add --no-cache docker
+    else
+      echo "Docker cannot be installed with this package manager" >&2
+      exit 1
+    fi
+  fi
+  if command -v systemctl >/dev/null 2>&1; then systemctl enable --now docker
+  elif command -v service >/dev/null 2>&1; then service docker start
+  fi
+}
+
 download() {
   url="$1"
   output="$2"
@@ -38,6 +58,7 @@ download() {
 }
 
 install_openssl
+install_docker
 command -v docker >/dev/null 2>&1 || { echo "Docker is required" >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable" >&2; exit 1; }
 mkdir -p "$base_dir"

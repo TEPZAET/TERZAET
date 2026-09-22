@@ -189,7 +189,7 @@ if ! docker run -d \
     -p 127.0.0.1:8787:8787 \
     -v "$control_dir:/opt/terzaet-control" \
     -e ROLE=control \
-    -e CONTROL_LISTEN=127.0.0.1:8787 \
+    -e CONTROL_LISTEN=0.0.0.0:8787 \
     -e CONTROL_DATA=/opt/terzaet-control/users.json \
     -e CONTROL_SECRET=/opt/terzaet-control/signing.key \
     -e CONTROL_TOKEN_FILE=/opt/terzaet-control/admin.token \

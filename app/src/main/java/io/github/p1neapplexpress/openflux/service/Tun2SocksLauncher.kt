@@ -46,8 +46,8 @@ class Tun2SocksLauncher(private val context: Context) {
 
         val sockPath = File(context.applicationInfo.dataDir, "sock_path").apply {
             if (!exists()) createNewFile()
-            setWritable(true, false)
-            setReadable(true, false)
+            setWritable(true, true)
+            setReadable(true, true)
         }
 
         val relay = DnsTcpRelay(socksPort).start()

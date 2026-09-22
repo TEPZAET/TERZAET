@@ -123,7 +123,7 @@ class OnboardingFragment : BaseFragment() {
         requireContext().getSharedPreferences("ui_settings", 0).edit()
             .putBoolean("onboarding_done", true)
             .remove("onboarding_page")
-            .commit()
+            .apply()
         parentFragmentManager.beginTransaction().replace(R.id.main, MainFragment()).commitAllowingStateLoss()
     }
 

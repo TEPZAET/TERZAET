@@ -58,6 +58,7 @@ if docker inspect "$container" >/dev/null 2>&1; then
     had_container=1
     old_image="$(docker inspect -f '{{.Image}}' "$container")"
     docker tag "$old_image" terzaet-yandex:rollback
+    old_doc_url="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container" | sed -n 's/^URL=//p' | head -n 1)"
     if [ -f "$install_dir/document-url" ]; then
         old_doc_url="$(cat "$install_dir/document-url")"
     fi
@@ -119,8 +120,6 @@ restore_previous() {
 }
 
 mkdir -p "$install_dir"
-printf '%s\n' "$doc_url" > "$install_dir/document-url"
-chmod 600 "$install_dir/document-url"
 if [ -n "$encryption_key" ]; then
     printf '%s\n' "$encryption_key" > "$key_file"
     chmod 600 "$key_file"
@@ -166,6 +165,13 @@ while [ -z "$detected" ] && [ "$attempt" -lt 15 ]; do
     attempt=$((attempt + 1))
 done
 [ -n "$detected" ] || detected="pending"
+if docker logs "$container" 2>&1 | grep -qi 'captcha'; then
+    docker logs "$container" >&2 || true
+    restore_previous
+    fail "Yandex CAPTCHA blocked this VDS IP; use another document or server IP"
+fi
+printf '%s\n' "$doc_url" > "$install_dir/document-url"
+chmod 600 "$install_dir/document-url"
 printf '%s\n' "$server_revision" > "$install_dir/version"
 chmod 600 "$install_dir/version"
 printf 'PROGRESS=100|Сервер готов\n'

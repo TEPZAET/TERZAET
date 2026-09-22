@@ -25,13 +25,13 @@
 
         <LinearLayout android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp"
             android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="16dp">
-            <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Название сервера">
+            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverNameContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Название сервера">
                 <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverName" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textCapSentences" android:singleLine="true" />
             </com.google.android.material.textfield.TextInputLayout>
-            <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="IP или домен">
+            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverHostContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="IP или домен">
                 <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverHost" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textUri" android:singleLine="true" />
             </com.google.android.material.textfield.TextInputLayout>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <LinearLayout android:id="@+id/serverUserRow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                 <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Пользователь">
                     <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverUser" android:layout_width="match_parent" android:layout_height="56dp" android:text="root" android:singleLine="true" />
                 </com.google.android.material.textfield.TextInputLayout>
@@ -39,9 +39,12 @@
                     <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverPort" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="number" android:text="22" android:singleLine="true" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
-            <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Пароль" app:endIconMode="password_toggle">
+            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverPasswordContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Пароль" app:endIconMode="password_toggle">
                 <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverPassword" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textPassword" android:singleLine="true" android:importantForAutofill="no" />
             </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverYandexSwitch"
+                android:layout_width="match_parent" android:layout_height="58dp" android:checked="true"
+                android:text="Яндекс Документы" android:textColor="@color/text_primary" app:useMaterialThemeColors="true" />
             <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverDocumentContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Ссылка на документ Яндекса" app:endIconMode="custom" app:endIconDrawable="@drawable/ic_help_circle" app:endIconContentDescription="Как получить документ Яндекса">
                 <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverDocument" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textUri" android:singleLine="true" />
             </com.google.android.material.textfield.TextInputLayout>

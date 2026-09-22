@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_screen_ambient" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp" android:paddingTop="42dp">
+        <TextView android:id="@+id/detailName" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
+        <TextView android:id="@+id/detailStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textColor="@color/text_secondary" android:textSize="13sp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/detailProtocols" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="28dp" android:text="Протоколы" android:textAllCaps="false" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/detailUsers" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="10dp" android:text="Пользователи и ключи" android:textAllCaps="false" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/detailConnection" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="10dp" android:text="Подключение к VDS" android:textAllCaps="false" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="34dp" android:text="Опасная зона" android:textColor="@color/state_error" android:textSize="15sp" android:textStyle="bold" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/detailDanger" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="10dp" android:text="Удалить TERZAET с VDS" android:textAllCaps="false" android:textColor="@color/state_error" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

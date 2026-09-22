@@ -53,6 +53,7 @@ class ServerInstallFragment : BaseFragment() {
     private lateinit var statusContainer: LinearLayout
     private lateinit var button: MaterialButton
     private lateinit var wizardStep: TextView
+    private lateinit var screen: View
     private var stepIndex = 0
     private var pendingRequest: InstallRequest? = null
 
@@ -61,6 +62,7 @@ class ServerInstallFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, state: Bundle?) {
         super.onViewCreated(view, state)
+        screen = view
         status = view.findViewById(R.id.installStatus)
         progress = view.findViewById(R.id.installProgress)
         spinner = view.findViewById(R.id.installSpinner)
@@ -75,6 +77,7 @@ class ServerInstallFragment : BaseFragment() {
         val password = view.findViewById<EditText>(R.id.serverPassword)
         val document = view.findViewById<EditText>(R.id.serverDocument)
         val encryption = view.findViewById<EditText>(R.id.serverEncryption)
+        val yandexSwitch = view.findViewById<MaterialSwitch>(R.id.serverYandexSwitch)
         val hysteriaSwitch = view.findViewById<MaterialSwitch>(R.id.serverHysteriaSwitch)
         val encryptionSwitch = view.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch)
         val encryptionContainer = view.findViewById<View>(R.id.serverEncryptionContainer)
@@ -85,6 +88,14 @@ class ServerInstallFragment : BaseFragment() {
                 .setMessage("1. Откройте Яндекс Документы и создайте пустой документ.\n\n2. Нажмите «Поделиться». Включите доступ «По ссылке» и выберите «Может редактировать» — это обязательно.\n\n3. Скопируйте ссылку на документ и вставьте её сюда. После установки не удаляйте документ и не меняйте ему доступ.\n\nНе добавляйте личные данные: TERZAET использует документ только как транспорт. Если Яндекс покажет CAPTCHA, создайте новый документ или смените IP VDS.")
                 .setPositiveButton("Понятно", null)
                 .show()
+        }
+        yandexSwitch.setOnCheckedChangeListener { _, enabled ->
+            view.findViewById<View>(R.id.serverDocumentContainer).isVisible = enabled && stepIndex == 2
+            encryptionSwitch.isVisible = enabled && stepIndex == 2
+            if (!enabled) {
+                encryptionSwitch.isChecked = false
+                encryption.text.clear()
+            }
         }
 
         encryptionSwitch.setOnCheckedChangeListener { _, enabled ->
@@ -108,6 +119,7 @@ class ServerInstallFragment : BaseFragment() {
                 password = password.text.toString(),
                 document = document.text.toString().trim(),
                 encryptionKey = encryption.text.toString().takeIf { encryptionSwitch.isChecked }.orEmpty(),
+                installYandex = yandexSwitch.isChecked,
                 installHysteria = hysteriaSwitch.isChecked,
             )
             if (!encryptionSwitch.isChecked) encryption.text.clear()
@@ -120,15 +132,21 @@ class ServerInstallFragment : BaseFragment() {
                 return@setOnClickListener
             }
             if (stepIndex == 2) {
-                pendingRequest?.let(::install)
+                val deployment = request.copy(password = pendingRequest?.password.orEmpty().ifBlank { request.password })
+                if (!deployment.validDeployment()) {
+                    status.text = "Выберите хотя бы один протокол. Для Яндекс Документов нужна ссылка на документ."
+                    return@setOnClickListener
+                }
+                if (deployment.encryptionKey.isNotBlank() && !EncryptionKey.isValid(deployment.encryptionKey)) {
+                    status.text = "Ключ шифрования должен содержать минимум 16 символов или оставьте поле пустым."
+                    return@setOnClickListener
+                }
+                pendingRequest = deployment
+                install(deployment)
                 return@setOnClickListener
             }
-            if (!request.valid()) {
-                status.text = "Заполните название, IP, логин, пароль и ссылку на документ. Ключ можно оставить пустым."
-                return@setOnClickListener
-            }
-            if (request.encryptionKey.isNotBlank() && !EncryptionKey.isValid(request.encryptionKey)) {
-                status.text = "Ключ шифрования должен содержать минимум 16 символов или оставьте поле пустым."
+            if (!request.validConnection()) {
+                status.text = "Заполните название, IP, логин и пароль VDS."
                 return@setOnClickListener
             }
             password.text.clear()
@@ -146,9 +164,12 @@ class ServerInstallFragment : BaseFragment() {
         status.text = "Подключение к серверу…"
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                runInstaller(request) { percent, message ->
-                    progress.post { progress.animate().cancel(); progress.setProgress(percent, true) }
-                    status.post { status.text = "$percent% · $message" }
+                runCatching {
+                    if (request.installYandex) verifyDocument(request.document)
+                    runInstaller(request) { percent, message ->
+                        progress.post { progress.animate().cancel(); progress.setProgress(percent, true) }
+                        status.post { status.text = "$percent% · $message" }
+                    }.getOrThrow()
                 }
             }
             progress.visibility = View.GONE
@@ -156,8 +177,8 @@ class ServerInstallFragment : BaseFragment() {
             button.isEnabled = true
             result.onSuccess { installed ->
                 val transport = if (installed.transport == "vyandex") TransportType.vyandex else TransportType.yandex
-                val payload = TunnelPayload.build(TunnelPayload.Form(transport = transport, url = request.document))
-                if (payload == null) {
+                val payload = if (request.installYandex) TunnelPayload.build(TunnelPayload.Form(transport = transport, url = request.document)) else emptyList()
+                if (request.installYandex && payload == null) {
                     status.text = "[CFG-601] Не удалось создать конфигурацию"
                     return@onSuccess
                 }
@@ -165,15 +186,19 @@ class ServerInstallFragment : BaseFragment() {
                     id = Random(System.currentTimeMillis()).nextLong(),
                     name = request.name,
                     transportType = transport.name,
-                    transportConnPayload = payload,
+                    transportConnPayload = payload ?: emptyList(),
                     encryptionKey = request.encryptionKey.takeIf { it.isNotBlank() }?.let(EncryptionKey::normalize),
                     adminHost = request.host,
                     adminUser = request.user,
                     adminPort = request.port,
                     serverRevision = ServerRelease.REVISION,
                     hysteriaUri = installed.hysteriaUri,
-                    connectionMode = if (installed.hysteriaUri != null) ConnectionMode.auto.name else ConnectionMode.yandex.name,
-                    autoFallback = installed.hysteriaUri != null,
+                    connectionMode = when {
+                        !request.installYandex && installed.hysteriaUri != null -> ConnectionMode.hysteria2.name
+                        installed.hysteriaUri != null -> ConnectionMode.auto.name
+                        else -> ConnectionMode.yandex.name
+                    },
+                    autoFallback = request.installYandex && installed.hysteriaUri != null,
                 )
                 vm.addTunnel(tunnel)
                 vm.selectTunnel(tunnel)
@@ -199,7 +224,6 @@ class ServerInstallFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    verifyDocument(request.document)
                     val check = preflight(request).getOrThrow()
                     val found = detectExisting(request).getOrThrow()
                     check to found
@@ -311,6 +335,21 @@ class ServerInstallFragment : BaseFragment() {
             2 -> "Развернуть и настроить"
             else -> "Протестировать подключение"
         }
+        val connectionVisible = stepIndex == 0
+        screen.findViewById<View>(R.id.serverNameContainer).isVisible = connectionVisible
+        screen.findViewById<View>(R.id.serverHostContainer).isVisible = connectionVisible
+        screen.findViewById<View>(R.id.serverUserRow).isVisible = connectionVisible
+        screen.findViewById<View>(R.id.serverPasswordContainer).isVisible = connectionVisible
+        val protocolsVisible = stepIndex == 2
+        val yandexEnabled = screen.findViewById<MaterialSwitch>(R.id.serverYandexSwitch).isChecked
+        screen.findViewById<View>(R.id.serverYandexSwitch).isVisible = protocolsVisible
+        screen.findViewById<View>(R.id.serverDocumentContainer).isVisible = protocolsVisible && yandexEnabled
+        screen.findViewById<View>(R.id.serverHysteriaSwitch).isVisible = protocolsVisible
+        screen.findViewById<View>(R.id.serverEncryptionSwitch).isVisible = protocolsVisible && yandexEnabled
+        screen.findViewById<View>(R.id.serverEncryptionContainer).isVisible = protocolsVisible && yandexEnabled && screen.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch).isChecked
+        screen.findViewById<View>(R.id.copyEncryptionKey).isVisible = protocolsVisible && yandexEnabled && screen.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch).isChecked
+        statusContainer.isVisible = stepIndex != 0
+        progress.isVisible = stepIndex == 2 && progress.progress > 0
     }
 
     private fun detectExisting(request: InstallRequest): Result<DetectedInstall> = runCatching {
@@ -392,10 +431,9 @@ class ServerInstallFragment : BaseFragment() {
             "export TERZAET_ENCRYPTION_KEY=\$(printf %s '$encodedKey' | base64 -d); " +
             "export TERZAET_HY_HOST=\$(printf %s '$encodedHost' | base64 -d); " +
             "rm -f /tmp/terzaet-install.sh /tmp/terzaet-hysteria-install.sh; " +
-            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && " +
-            "sh /tmp/terzaet-install.sh 2>&1" +
+            (if (request.installYandex) "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && sh /tmp/terzaet-install.sh 2>&1" else "true") +
             if (request.installHysteria) {
-                " && printf 'PROGRESS=93|Настраиваем Hysteria 2\\n' && " +
+                (if (request.installYandex) " && " else "") + "printf 'PROGRESS=93|Настраиваем Hysteria 2\\n' && " +
                     "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-hysteria2.sh -o /tmp/terzaet-hysteria-install.sh && " +
                     "sh /tmp/terzaet-hysteria-install.sh 2>&1"
             } else ""
@@ -454,8 +492,8 @@ class ServerInstallFragment : BaseFragment() {
                 ?: "Сервер вернул код $exitCode"
             error(detail)
         }
-        val transport = Regex("(?m)^TRANSPORT=(yandex|vyandex)$").find(outputText)?.groupValues?.get(1)
-            ?: error("Не удалось определить режим документа")
+        val transport = if (request.installYandex) Regex("(?m)^TRANSPORT=(yandex|vyandex)$").find(outputText)?.groupValues?.get(1)
+            ?: error("Не удалось определить режим документа") else "hysteria"
         val hysteriaUri = Regex("(?m)^HY2_URI=(hysteria2://\\S+)$").find(outputText)?.groupValues?.get(1)
         if (request.installHysteria && hysteriaUri == null) error("Не удалось получить конфигурацию Hysteria 2")
         InstalledServer(transport, fingerprint, hysteriaUri)
@@ -501,10 +539,11 @@ class ServerInstallFragment : BaseFragment() {
         val password: String,
         val document: String,
         val encryptionKey: String,
+        val installYandex: Boolean,
         val installHysteria: Boolean,
     ) {
-        fun valid() = name.isNotBlank() && host.isNotBlank() && user.isNotBlank() && port in 1..65535 &&
-            password.isNotEmpty() && document.startsWith("https://")
+        fun validConnection() = name.isNotBlank() && host.isNotBlank() && user.isNotBlank() && port in 1..65535 && password.isNotEmpty()
+        fun validDeployment() = validConnection() && (installYandex || installHysteria) && (!installYandex || document.startsWith("https://"))
     }
 
     private data class InstalledServer(val transport: String, val fingerprint: String, val hysteriaUri: String?) {

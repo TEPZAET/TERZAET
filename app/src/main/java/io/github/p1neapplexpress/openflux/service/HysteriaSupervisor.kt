@@ -31,7 +31,9 @@ class HysteriaSupervisor(
     private val running = AtomicBoolean(false)
     private val ready = AtomicBoolean(false)
     private val stopping = AtomicBoolean(false)
-    private val controller = HysteriaFdController(protectSocket)
+    private val controller = HysteriaFdController(protectSocket) { message ->
+        EventBus.dispatch(AppEvent.LogMessage(message))
+    }
     private var process: Process? = null
     private var lastOutput: String? = null
 
@@ -144,7 +146,7 @@ class HysteriaSupervisor(
         val code = process.waitFor()
         if (stopping.get() || this.process !== process) return
         output.join(STOP_GRACE_MS)
-        fail(lastOutput ?: "Hysteria 2 завершилась с кодом $code")
+        fail("Hysteria 2 завершилась с кодом $code: ${lastOutput ?: "без сообщения"}")
     }
 
     private fun pumpOutput(process: Process) {
@@ -179,7 +181,7 @@ class HysteriaSupervisor(
           keepAlivePeriod: 10s
           sockopts:
             fdControlUnixSocket: ${yaml(socket)}
-        lazy: false
+        lazy: true
     """.trimIndent()
 
     private fun yaml(value: String) = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""

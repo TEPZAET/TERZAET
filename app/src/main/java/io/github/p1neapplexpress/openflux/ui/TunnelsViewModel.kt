@@ -92,6 +92,9 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     private val _selected = MutableStateFlow<Tunnel?>(null)
     val selected: StateFlow<Tunnel?> = _selected.asStateFlow()
 
+    private val _activeTransport = MutableStateFlow(AppEvent.Transport.YANDEX)
+    val activeTransport: StateFlow<AppEvent.Transport> = _activeTransport.asStateFlow()
+
     val selectedTunnelId: Long? get() = _selected.value?.id
 
     private var uptimeJob: Job? = null
@@ -101,6 +104,9 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
         viewModelScope.launch {
             EventBus.events.collect { ev ->
+                if (ev is AppEvent.TransportChanged) {
+                    _activeTransport.value = ev.transport
+                }
                 if (ev is AppEvent.ConnectionStatus) {
                     val tunnel = activeTunnelData ?: _active.value.tunnel
                     if (tunnel != null) {
@@ -190,7 +196,9 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val mode = ConnectionMode.from(tunnel.connectionMode)
                 val hysteriaUri = tunnel.hysteriaUri
-                if (mode != ConnectionMode.yandex && !hysteriaUri.isNullOrBlank()) {
+                val usesHysteria = mode != ConnectionMode.yandex && !hysteriaUri.isNullOrBlank()
+                _activeTransport.value = if (usesHysteria) AppEvent.Transport.HYSTERIA2 else AppEvent.Transport.YANDEX
+                if (usesHysteria) {
                     service?.startHysteriaNative(
                         hysteriaUri,
                         tunnel.transportConnPayload.toTypedArray(),
@@ -218,6 +226,30 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
                 verifiedLatency = runCatching { service?.measureDataPathLatency() ?: -1L }.getOrDefault(-1L)
                 if (verifiedLatency >= 0L) break
                 if (attempt < 2) delay(1_000L)
+            }
+
+            val mode = ConnectionMode.from(tunnel.connectionMode)
+            if (verifiedLatency < 0L && mode == ConnectionMode.auto && tunnel.autoFallback && !tunnel.hysteriaUri.isNullOrBlank()) {
+                EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 не пропускает трафик · переключаемся на Яндекс"))
+                runCatching { service?.stopOpenFluxNative() }
+                _activeTransport.value = AppEvent.Transport.YANDEX
+                runCatching {
+                    service?.startOpenFluxNative(
+                        tunnel.transportType,
+                        tunnel.transportConnPayload.toTypedArray(),
+                        tunnel.encryptionKey,
+                    )
+                }.onFailure {
+                    fail("TR-204", "Не удалось включить резервный транспорт")
+                    return@launch
+                }
+                awaitService(TRANSPORT_TIMEOUT_MS, "TR-205", "Резервный транспорт не запустился") { it.isFServiceRunning() }
+                    ?.let { fail(it); return@launch }
+                for (attempt in 0..2) {
+                    verifiedLatency = runCatching { service?.measureDataPathLatency() ?: -1L }.getOrDefault(-1L)
+                    if (verifiedLatency >= 0L) break
+                    if (attempt < 2) delay(1_000L)
+                }
             }
 
             if (verifiedLatency >= 0L) {

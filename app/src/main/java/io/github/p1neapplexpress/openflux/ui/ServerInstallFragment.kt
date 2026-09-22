@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.ByteArrayOutputStream
 import io.github.p1neapplexpress.openflux.data.EncryptionKey
+import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import kotlin.random.Random
 import java.security.SecureRandom
 import java.net.HttpURLConnection
@@ -67,6 +68,7 @@ class ServerInstallFragment : BaseFragment() {
         val password = view.findViewById<EditText>(R.id.serverPassword)
         val document = view.findViewById<EditText>(R.id.serverDocument)
         val encryption = view.findViewById<EditText>(R.id.serverEncryption)
+        val hysteriaSwitch = view.findViewById<MaterialSwitch>(R.id.serverHysteriaSwitch)
         val encryptionSwitch = view.findViewById<MaterialSwitch>(R.id.serverEncryptionSwitch)
         val encryptionContainer = view.findViewById<View>(R.id.serverEncryptionContainer)
         val copyKey = view.findViewById<View>(R.id.copyEncryptionKey)
@@ -99,6 +101,7 @@ class ServerInstallFragment : BaseFragment() {
                 password = password.text.toString(),
                 document = document.text.toString().trim(),
                 encryptionKey = encryption.text.toString().takeIf { encryptionSwitch.isChecked }.orEmpty(),
+                installHysteria = hysteriaSwitch.isChecked,
             )
             if (!encryptionSwitch.isChecked) encryption.text.clear()
             if (!request.valid()) {
@@ -148,11 +151,18 @@ class ServerInstallFragment : BaseFragment() {
                     adminUser = request.user,
                     adminPort = request.port,
                     serverRevision = ServerRelease.REVISION,
+                    hysteriaUri = installed.hysteriaUri,
+                    connectionMode = if (installed.hysteriaUri != null) ConnectionMode.auto.name else ConnectionMode.yandex.name,
+                    autoFallback = installed.hysteriaUri != null,
                 )
                 vm.addTunnel(tunnel)
                 vm.selectTunnel(tunnel)
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_success)
-                status.text = "100% · Сервер установлен\n${installed.transportLabel}"
+                status.text = if (installed.hysteriaUri != null) {
+                    "100% · Сервер установлен\n${installed.transportLabel} + Hysteria 2"
+                } else {
+                    "100% · Сервер установлен\n${installed.transportLabel}"
+                }
                 button.text = "Готово"
                 requireActivity().findViewById<ViewPager2>(R.id.view_pager)?.setCurrentItem(0, true)
             }.onFailure { error ->
@@ -264,7 +274,9 @@ class ServerInstallFragment : BaseFragment() {
             request,
             "t=0; o=0; " +
                 "docker inspect terzaet-yandex >/dev/null 2>&1 && t=1 || true; " +
+                "docker inspect terzaet-hysteria >/dev/null 2>&1 && t=1 || true; " +
                 "[ -d /opt/terzaet ] && t=1; " +
+                "[ -d /opt/terzaet-hysteria ] && t=1; " +
                 "docker inspect fluxglass-yandex >/dev/null 2>&1 && o=1 || true; " +
                 "[ -d /opt/fluxglass ] && o=1; " +
                 "systemctl cat openflux-yandex.service >/dev/null 2>&1 && o=1 || true; " +
@@ -276,7 +288,7 @@ class ServerInstallFragment : BaseFragment() {
 
     private fun removeDetected(request: InstallRequest, terzaet: Boolean, openFlux: Boolean): Result<Unit> = runCatching {
         val commands = mutableListOf<String>()
-        if (terzaet) commands += "docker rm -f terzaet-yandex >/dev/null 2>&1 || true; rm -rf /opt/terzaet"
+        if (terzaet) commands += "docker rm -f terzaet-yandex terzaet-hysteria >/dev/null 2>&1 || true; systemctl disable --now terzaet-hysteria.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/terzaet-hysteria.service; systemctl daemon-reload >/dev/null 2>&1 || true; rm -rf /opt/terzaet /opt/terzaet-hysteria"
         if (openFlux) commands += "docker rm -f fluxglass-yandex >/dev/null 2>&1 || true; systemctl disable --now openflux-yandex.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/openflux-yandex.service /usr/local/bin/openflux; rm -rf /opt/fluxglass; systemctl daemon-reload >/dev/null 2>&1 || true"
         runSshCommand(request, commands.joinToString("; "))
     }
@@ -330,10 +342,19 @@ class ServerInstallFragment : BaseFragment() {
         val fingerprint = session.hostKey.getFingerPrint(jsch)
         val encodedUrl = Base64.encodeToString(request.document.toByteArray(), Base64.NO_WRAP)
         val encodedKey = Base64.encodeToString(request.encryptionKey.toByteArray(), Base64.NO_WRAP)
+        val encodedHost = Base64.encodeToString(request.host.toByteArray(), Base64.NO_WRAP)
         val command = "export TERZAET_INSTALL_DIR=/opt/terzaet; " +
             "export TERZAET_DOC_URL=\$(printf %s '$encodedUrl' | base64 -d); " +
             "export TERZAET_ENCRYPTION_KEY=\$(printf %s '$encodedKey' | base64 -d); " +
-            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh | sh 2>&1"
+            "export TERZAET_HY_HOST=\$(printf %s '$encodedHost' | base64 -d); " +
+            "rm -f /tmp/terzaet-install.sh /tmp/terzaet-hysteria-install.sh; " +
+            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && " +
+            "sh /tmp/terzaet-install.sh 2>&1" +
+            if (request.installHysteria) {
+                " && printf 'PROGRESS=93|Настраиваем Hysteria 2\\n' && " +
+                    "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-hysteria2.sh -o /tmp/terzaet-hysteria-install.sh && " +
+                    "sh /tmp/terzaet-hysteria-install.sh 2>&1"
+            } else ""
         val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
         channel.setCommand(command)
         val errors = ByteArrayOutputStream()
@@ -391,7 +412,9 @@ class ServerInstallFragment : BaseFragment() {
         }
         val transport = Regex("(?m)^TRANSPORT=(yandex|vyandex)$").find(outputText)?.groupValues?.get(1)
             ?: error("Не удалось определить режим документа")
-        InstalledServer(transport, fingerprint)
+        val hysteriaUri = Regex("(?m)^HY2_URI=(hysteria2://\\S+)$").find(outputText)?.groupValues?.get(1)
+        if (request.installHysteria && hysteriaUri == null) error("Не удалось получить конфигурацию Hysteria 2")
+        InstalledServer(transport, fingerprint, hysteriaUri)
     }
 
     private fun friendlyError(error: Throwable): String {
@@ -418,6 +441,8 @@ class ServerInstallFragment : BaseFragment() {
                 "[SRV-801] Docker не удалось подготовить\nСвободите место на диске и проверьте доступ VDS к интернету.\n$raw"
             "document" in lower || "yandex" in lower ->
                 "[DOC-802] Документ Яндекса недоступен\nОткройте доступ по ссылке и повторите установку.\n$raw"
+            "hysteria" in lower || "hy2" in lower ->
+                "[HY2-805] Hysteria 2 не удалось настроить\nПроверьте доступ VDS к GitHub и откройте UDP-порт 443.\n$raw"
             else -> "[SRV-800] Установка не завершена\n$raw\nПредыдущая рабочая версия восстановлена автоматически."
         }
     }
@@ -432,12 +457,13 @@ class ServerInstallFragment : BaseFragment() {
         val password: String,
         val document: String,
         val encryptionKey: String,
+        val installHysteria: Boolean,
     ) {
         fun valid() = name.isNotBlank() && host.isNotBlank() && user.isNotBlank() && port in 1..65535 &&
             password.isNotEmpty() && document.startsWith("https://")
     }
 
-    private data class InstalledServer(val transport: String, val fingerprint: String) {
+    private data class InstalledServer(val transport: String, val fingerprint: String, val hysteriaUri: String?) {
         val transportLabel: String get() = if (transport == "vyandex") "новый Яндекс Документ" else "классический Яндекс Документ"
     }
 

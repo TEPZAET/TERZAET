@@ -8,6 +8,12 @@ sealed interface AppEvent {
     data object VpnRevoked : AppEvent
     data class ConnectionStatus(val status: Status) : AppEvent
     data class NativeProcessExited(val message: String) : AppEvent
+    data class TransportChanged(val transport: Transport) : AppEvent
+
+    enum class Transport {
+        YANDEX,
+        HYSTERIA2,
+    }
 
     enum class Status {
         CHECKING,

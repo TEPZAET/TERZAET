@@ -71,6 +71,7 @@ class SocksVpnService : android.net.VpnService() {
             lastHysteriaUri = null
             allowHysteriaFallback = false
             activeBackend = Backend.YANDEX
+            EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.YANDEX))
             sessionGeneration.incrementAndGet()
             hysteria.stop()
             supervisor.start(args.toList(), encryptionKey)
@@ -84,6 +85,7 @@ class SocksVpnService : android.net.VpnService() {
             lastEncryptionKey = fallbackEncryptionKey
             allowHysteriaFallback = allowFallback && fallbackArgs.isNotEmpty()
             activeBackend = Backend.HYSTERIA
+            EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.HYSTERIA2))
             sessionGeneration.incrementAndGet()
             supervisor.stop()
             hysteria.start(uri)
@@ -144,6 +146,7 @@ class SocksVpnService : android.net.VpnService() {
             if (allowHysteriaFallback && !stopping.get() && lastTransportArgs?.isNotEmpty() == true) {
                 EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 недоступна · переключаемся на Яндекс"))
                 activeBackend = Backend.YANDEX
+                EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.YANDEX))
                 hysteria.stop()
                 supervisor.start(lastTransportArgs.orEmpty(), lastEncryptionKey)
             } else if (!reconnecting.get()) {
@@ -250,10 +253,16 @@ class SocksVpnService : android.net.VpnService() {
                 vpn.isRunning.set(false)
                 stopClients()
                 delay((1_000L shl (attempt - 1)).coerceAtMost(8_000L))
-                if (activeBackend == Backend.HYSTERIA && !lastHysteriaUri.isNullOrBlank()) {
+                if (activeBackend == Backend.HYSTERIA && allowHysteriaFallback) {
+                    EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 недоступна · переключаемся на Яндекс"))
+                    activeBackend = Backend.YANDEX
+                    EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.YANDEX))
+                    supervisor.start(lastTransportArgs.orEmpty(), lastEncryptionKey)
+                } else if (activeBackend == Backend.HYSTERIA && !lastHysteriaUri.isNullOrBlank()) {
                     hysteria.start(lastHysteriaUri!!)
                 } else {
                     activeBackend = Backend.YANDEX
+                    EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.YANDEX))
                     supervisor.start(lastTransportArgs.orEmpty(), lastEncryptionKey)
                 }
                 val deadline = System.currentTimeMillis() + 45_000L

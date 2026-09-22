@@ -39,11 +39,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.github.g00fy2.quickie.QRResult
 import io.github.g00fy2.quickie.ScanQRCode
 import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.Tunnel
+import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.data.TunnelState
 import io.github.p1neapplexpress.openflux.event.AppEvent
@@ -74,6 +76,7 @@ class TunnelsFragment : BaseFragment() {
     private lateinit var chevron: ImageView
     private lateinit var statusText: TextView
     private lateinit var headerStatus: TextView
+    private lateinit var backendBadge: TextView
     private lateinit var connectLabel: TextView
     private lateinit var transitionVideo: CropVideoView
     private lateinit var videoPoster: ImageView
@@ -97,6 +100,8 @@ class TunnelsFragment : BaseFragment() {
     private var breathAnim: ObjectAnimator? = null
     private var currentVisualState: TunnelState? = null
     private var popup: PopupWindow? = null
+    private var selectedTunnel: Tunnel? = null
+    private var currentTransport = AppEvent.Transport.YANDEX
 
     private val vpnPermission = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -140,6 +145,7 @@ class TunnelsFragment : BaseFragment() {
         chevron = view.findViewById(R.id.chevron)
         statusText = view.findViewById(R.id.statusText)
         headerStatus = view.findViewById(R.id.headerStatus)
+        backendBadge = view.findViewById(R.id.backendBadge)
         connectLabel = view.findViewById(R.id.connectLabel)
         transitionVideo = view.findViewById(R.id.transitionVideo)
         videoPoster = view.findViewById(R.id.videoPoster)
@@ -283,11 +289,13 @@ class TunnelsFragment : BaseFragment() {
                 launch { vm.uptimeSeconds.collect { renderUptime(it) } }
                 launch { vm.pingMs.collect { value -> pingValue.text = if (vm.active.value is TunnelState.Running && value != null) "$value" else "—" } }
                 launch { vm.selected.collect { renderSelected(it) } }
+                launch { vm.activeTransport.collect { transport -> currentTransport = transport; renderBackend() } }
             }
         }
     }
 
     private fun renderSelected(tunnel: Tunnel?) {
+        selectedTunnel = tunnel
         tunnelName.text = tunnel?.name ?: getString(R.string.no_configs)
         configDot.background.setTint(
             ContextCompat.getColor(
@@ -295,6 +303,19 @@ class TunnelsFragment : BaseFragment() {
                 if (tunnel != null) R.color.state_idle else R.color.state_error
             )
         )
+        renderBackend()
+    }
+
+    private fun renderBackend() {
+        val tunnel = selectedTunnel
+        val label = when {
+            vm.active.value.isActive -> if (currentTransport == AppEvent.Transport.HYSTERIA2) "Hy2" else "ЯDoc"
+            tunnel == null -> "ЯDoc"
+            ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.hysteria2 -> "Hy2"
+            ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.auto && !tunnel.hysteriaUri.isNullOrBlank() -> "Hy2"
+            else -> "ЯDoc"
+        }
+        backendBadge.text = label
     }
 
     private fun showServerSheet() {
@@ -334,6 +355,24 @@ class TunnelsFragment : BaseFragment() {
                 isActive -> "Используется сейчас"
                 tunnel.id == vm.selectedTunnelId -> "Выбран"
                 else -> tunnel.transportType
+            }
+            val selectedMode = ConnectionMode.from(tunnel.connectionMode)
+            val yandex = row.findViewById<MaterialButton>(R.id.serverYandex)
+            val hysteria = row.findViewById<MaterialButton>(R.id.serverHysteria)
+            setTransportButton(yandex, selectedMode == ConnectionMode.yandex || (selectedMode == ConnectionMode.auto && tunnel.hysteriaUri.isNullOrBlank()), "ЯDoc")
+            setTransportButton(hysteria, selectedMode != ConnectionMode.yandex && !tunnel.hysteriaUri.isNullOrBlank(), "Hy2")
+            hysteria.alpha = if (tunnel.hysteriaUri.isNullOrBlank()) 0.45f else 1f
+            yandex.setOnClickListener {
+                vm.setConnectionMode(tunnel, ConnectionMode.yandex)
+                dialog.dismiss()
+            }
+            hysteria.setOnClickListener {
+                if (tunnel.hysteriaUri.isNullOrBlank()) {
+                    Toast.makeText(requireContext(), "Hysteria 2 ещё не настроена", Toast.LENGTH_SHORT).show()
+                } else {
+                    vm.setConnectionMode(tunnel, ConnectionMode.hysteria2)
+                    dialog.dismiss()
+                }
             }
             row.setOnClickListener {
                 if (vm.active.value is TunnelState.Running) vm.startTunnel(tunnel) else vm.selectTunnel(tunnel)
@@ -375,6 +414,13 @@ class TunnelsFragment : BaseFragment() {
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(6) })
         dialog.setContentView(content)
         dialog.show()
+    }
+
+    private fun setTransportButton(button: MaterialButton, selected: Boolean, label: String) {
+        button.text = if (selected) "✓  $label" else label
+        button.alpha = 1f
+        button.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#3F454A" else "#CCFFFFFF"))
+        button.setTextColor(android.graphics.Color.parseColor(if (selected) "#FFFFFF" else "#3F454A"))
     }
 
     

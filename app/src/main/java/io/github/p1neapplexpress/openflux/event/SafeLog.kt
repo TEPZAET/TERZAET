@@ -12,6 +12,9 @@ object SafeLog {
         val lower = raw.lowercase(Locale.ROOT)
         return when {
             "captcha" in lower -> "Яндекс запросил CAPTCHA. Замените документ или IP сервера."
+            "hysteria 2 завершилась" in lower -> sanitize(raw).take(140)
+            "не удалось защитить udp-сокет hysteria" in lower -> "Hysteria 2 не получила доступ к сети устройства"
+            "hysteria 2 не передала udp-сокет" in lower -> "Hysteria 2 не передала сетевой сокет приложению"
             "подключение восстановлено" in lower -> "Подключение восстановлено"
             "восстанавли" in lower -> "Восстанавливаем соединение"
             "vpn configured" in lower -> "VPN-интерфейс подготовлен"

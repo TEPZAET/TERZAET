@@ -226,7 +226,9 @@ class AddTunFragment : BaseFragment() {
     private fun installHysteriaOnVds(host: String, user: String, port: Int, password: String): Result<String> = runCatching {
         val encodedHost = Base64.encodeToString(host.toByteArray(), Base64.NO_WRAP)
         val command = "export TERZAET_HY_HOST=\$(printf %s '$encodedHost' | base64 -d); " +
-            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-hysteria2.sh | sh 2>&1"
+            "rm -f /tmp/terzaet-hysteria-install.sh; " +
+            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-hysteria2.sh -o /tmp/terzaet-hysteria-install.sh && " +
+            "sh /tmp/terzaet-hysteria-install.sh 2>&1"
         val response = runSsh(host, user, port, password, command)
         Regex("(?m)^HY2_URI=(hysteria2://\\S+)$").find(response)?.groupValues?.get(1)
             ?: error("Hysteria URI not returned")
@@ -286,7 +288,9 @@ class AddTunFragment : BaseFragment() {
         val command = "export TERZAET_INSTALL_DIR=/opt/terzaet; " +
             "export TERZAET_DOC_URL=\$(printf %s '$encodedUrl' | base64 -d); " +
             "export TERZAET_ENCRYPTION_KEY=\$(printf %s '$encodedKey' | base64 -d); " +
-            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh | sh 2>&1"
+            "rm -f /tmp/terzaet-install.sh; " +
+            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && " +
+            "sh /tmp/terzaet-install.sh 2>&1"
         val jsch = JSch()
         val knownHosts = File(requireContext().filesDir, "ssh_known_hosts")
         if (!knownHosts.exists()) knownHosts.createNewFile()
@@ -390,7 +394,7 @@ class AddTunFragment : BaseFragment() {
         session.setConfig("PreferredAuthentications", "password,keyboard-interactive")
         session.connect(15_000)
         val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
-        channel.setCommand("docker rm -f terzaet-yandex >/dev/null 2>&1 || true; rm -rf /opt/terzaet; printf TERZAET_REMOVED")
+        channel.setCommand("docker rm -f terzaet-yandex terzaet-hysteria >/dev/null 2>&1 || true; systemctl disable --now terzaet-hysteria.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/terzaet-hysteria.service; systemctl daemon-reload >/dev/null 2>&1 || true; rm -rf /opt/terzaet /opt/terzaet-hysteria; printf TERZAET_REMOVED")
         val output = channel.inputStream
         channel.connect(15_000)
         val response = output.bufferedReader().readText()

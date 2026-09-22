@@ -64,8 +64,8 @@ class ServersFragment : BaseFragment() {
             val selectedMode = ConnectionMode.from(tunnel.connectionMode)
             val yandex = row.findViewById<MaterialButton>(R.id.serverYandex)
             val hysteria = row.findViewById<MaterialButton>(R.id.serverHysteria)
-            setModeStyle(yandex, selectedMode == ConnectionMode.yandex || selectedMode == ConnectionMode.auto)
-            setModeStyle(hysteria, selectedMode == ConnectionMode.hysteria2)
+            setModeStyle(yandex, selectedMode == ConnectionMode.yandex || (selectedMode == ConnectionMode.auto && tunnel.hysteriaUri.isNullOrBlank()), "ЯDoc")
+            setModeStyle(hysteria, selectedMode != ConnectionMode.yandex && !tunnel.hysteriaUri.isNullOrBlank(), "Hy2")
             hysteria.alpha = if (tunnel.hysteriaUri.isNullOrBlank()) 0.45f else 1f
             yandex.setOnClickListener { vm.setConnectionMode(tunnel, ConnectionMode.yandex) }
             hysteria.setOnClickListener {
@@ -93,9 +93,11 @@ class ServersFragment : BaseFragment() {
         }
     }
 
-    private fun setModeStyle(button: MaterialButton, selected: Boolean) {
-        button.isChecked = selected
-        button.alpha = if (selected) 1f else 0.64f
+    private fun setModeStyle(button: MaterialButton, selected: Boolean, label: String) {
+        button.text = if (selected) "✓  $label" else label
+        button.alpha = 1f
+        button.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#3F454A" else "#CCFFFFFF"))
+        button.setTextColor(android.graphics.Color.parseColor(if (selected) "#FFFFFF" else "#3F454A"))
     }
 
     private fun confirmDelete(tunnel: Tunnel) {

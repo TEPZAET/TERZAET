@@ -70,7 +70,7 @@ class LogsFragment : BaseFragment() {
 
     private fun appendCard(raw: String) {
         val lower = raw.lowercase(Locale.ROOT)
-        val error = lower.contains("не удалось") || lower.contains("отклонил") || lower.contains("не ответил") || lower.contains("captcha")
+        val error = lower.contains("не удалось") || lower.contains("отклонил") || lower.contains("не ответил") || lower.contains("captcha") || lower.contains("hysteria 2 завершилась")
         val success = lower.contains("восстановлено") || lower.contains("запущен") || lower.contains("проверена")
         val title: String
         val explanation: String
@@ -98,6 +98,10 @@ class LogsFragment : BaseFragment() {
             lower.contains("запрос передан") -> {
                 title = "Запрос передан"
                 explanation = "Приложение отправило соединение через выбранный сервер."
+            }
+            lower.contains("hysteria 2 завершилась") -> {
+                title = "Hysteria 2 завершилась"
+                explanation = raw
             }
             error -> {
                 title = "Не удалось выполнить действие"

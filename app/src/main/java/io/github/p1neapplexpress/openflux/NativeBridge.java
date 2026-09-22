@@ -77,5 +77,9 @@ public final class NativeBridge {
     }
 
     public static native int sendfd(int fd, String sock);
+    public static native int receivefd(int fd);
+    public static native int createfdcontrol(String path);
+    public static native long acceptfdcontrol(int fd);
+    public static native void finishfdcontrol(int fd, boolean accepted);
     public static native void jniclose(int fd);
 }

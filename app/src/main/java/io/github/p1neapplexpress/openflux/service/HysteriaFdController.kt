@@ -1,11 +1,7 @@
 package io.github.p1neapplexpress.openflux.service
 
-import android.net.LocalServerSocket
-import android.os.ParcelFileDescriptor
-import android.system.Os
+import io.github.p1neapplexpress.openflux.NativeBridge
 import java.io.File
-import java.io.FileDescriptor
-import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -15,26 +11,23 @@ class HysteriaFdController(
     private val onProtected: () -> Unit,
 ) {
     private val running = AtomicBoolean(false)
-    private var server: LocalServerSocket? = null
+    private var serverFd = -1
 
     fun start(path: File): Boolean = runCatching {
-        path.delete()
-        server = LocalServerSocket(path.absolutePath)
+        serverFd = NativeBridge.createfdcontrol(path.absolutePath)
+        check(serverFd >= 0)
         running.set(true)
         thread(name = "HysteriaFdControl", isDaemon = true) {
             while (running.get()) {
-                val socket = runCatching { server?.accept() }.getOrNull() ?: break
-                socket.use {
-                    val received = runCatching { it.inputStream.read() }.getOrDefault(-1)
-                    val descriptor = if (received >= 0) it.ancillaryFileDescriptors?.firstOrNull() else null
-                    val ok = descriptor?.let(::protectDescriptor) ?: false
-                    if (!ok) onFailure(if (received < 0) "Hysteria 2 не передала UDP-сокет" else "Не удалось защитить UDP-сокет Hysteria 2")
-                    else onProtected()
-                    runCatching {
-                        it.outputStream.write(if (ok) 1 else 0)
-                        it.outputStream.flush()
-                    }
-                }
+                val packet = NativeBridge.acceptfdcontrol(serverFd)
+                if (packet < 0) break
+                val controlFd = (packet ushr 32).toInt()
+                val descriptor = packet.toInt()
+                val ok = descriptor >= 0 && protect(descriptor)
+                if (descriptor >= 0) NativeBridge.jniclose(descriptor)
+                if (!ok) onFailure("Не удалось защитить UDP-сокет Hysteria 2")
+                else onProtected()
+                NativeBridge.finishfdcontrol(controlFd, ok)
             }
         }
         true
@@ -42,25 +35,8 @@ class HysteriaFdController(
 
     fun stop() {
         running.set(false)
-        runCatching { server?.close() }
-        server = null
+        if (serverFd >= 0) NativeBridge.jniclose(serverFd)
+        serverFd = -1
     }
 
-    private fun protectDescriptor(descriptor: FileDescriptor): Boolean {
-        var duplicate: ParcelFileDescriptor? = null
-        return try {
-            duplicate = ParcelFileDescriptor.dup(descriptor)
-            val raw = duplicate.detachFd()
-            try {
-                protect(raw)
-            } finally {
-                ParcelFileDescriptor.adoptFd(raw).close()
-            }
-        } catch (_: Exception) {
-            false
-        } finally {
-            runCatching { duplicate?.close() }
-            runCatching { Os.close(descriptor) }
-        }
-    }
 }

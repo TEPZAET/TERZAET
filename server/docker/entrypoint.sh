@@ -15,9 +15,9 @@ listen="${SOCKS5_LISTEN:-:1080}"
 mode="${EXIT_MODE:-l4}"
 
 case "$role" in
-  client|exit-node) ;;
+  client|exit-node|control) ;;
   *)
-    echo "ROLE must be 'client' or 'exit-node' (got '$role')" >&2
+    echo "ROLE must be 'client', 'exit-node' or 'control' (got '$role')" >&2
     exit 2
     ;;
 esac
@@ -29,6 +29,13 @@ case "$transport" in
     exit 2
     ;;
 esac
+
+if [ "$role" = control ]; then
+  exec terzaet-control --listen "${CONTROL_LISTEN:-127.0.0.1:8787}" \
+    --data "${CONTROL_DATA:-/opt/terzaet-control/users.json}" \
+    --secret "${CONTROL_SECRET:-/opt/terzaet-control/signing.key}" \
+    --token-file "${CONTROL_TOKEN_FILE:-/opt/terzaet-control/admin.token}"
+fi
 
 set -- "--$role" --transport "$transport"
 

@@ -12,6 +12,7 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/openflux .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/terzaet-control ./cmd/terzaet-control
 
 FROM alpine:3.22
 # ca-certificates: all transports are TLS (wss/https) to Yandex/MAX endpoints.
@@ -19,6 +20,7 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates iptables
 
 COPY --from=build /out/openflux /usr/local/bin/openflux
+COPY --from=build /out/terzaet-control /usr/local/bin/terzaet-control
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/openflux
 

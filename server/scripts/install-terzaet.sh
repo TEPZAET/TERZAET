@@ -5,11 +5,13 @@ repo="${TERZAET_REPO:-TEPZAET/TERZAET}"
 ref="${TERZAET_REF:-main}"
 install_dir="${TERZAET_INSTALL_DIR:-/opt/terzaet}"
 container="terzaet-yandex"
+control_container="terzaet-control"
 image="terzaet-yandex:local"
 doc_url="${TERZAET_DOC_URL:-${1:-}}"
 encryption_key="${TERZAET_ENCRYPTION_KEY:-}"
 key_file="$install_dir/encryption-key"
 server_revision="2"
+control_dir="$install_dir/control"
 
 fail() {
     printf 'ERROR: %s\n' "$1" >&2
@@ -120,6 +122,15 @@ restore_previous() {
 }
 
 mkdir -p "$install_dir"
+mkdir -p "$control_dir"
+if [ ! -s "$control_dir/admin.token" ]; then
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -base64 36 | tr -d '\n' > "$control_dir/admin.token"
+    else
+        head -c 36 /dev/urandom | base64 | tr -d '\n' > "$control_dir/admin.token"
+    fi
+    chmod 600 "$control_dir/admin.token"
+fi
 if [ -n "$encryption_key" ]; then
     printf '%s\n' "$encryption_key" > "$key_file"
     chmod 600 "$key_file"
@@ -170,9 +181,24 @@ if docker logs "$container" 2>&1 | grep -qi 'captcha'; then
     restore_previous
     fail "Yandex CAPTCHA blocked this VDS IP; use another document or server IP"
 fi
+docker rm -f "$control_container" >/dev/null 2>&1 || true
+if ! docker run -d \
+    --name "$control_container" \
+    --restart unless-stopped \
+    --label app.terzaet.managed=true \
+    -p 127.0.0.1:8787:8787 \
+    -v "$control_dir:/opt/terzaet-control" \
+    -e ROLE=control \
+    -e CONTROL_LISTEN=127.0.0.1:8787 \
+    -e CONTROL_DATA=/opt/terzaet-control/users.json \
+    -e CONTROL_SECRET=/opt/terzaet-control/signing.key \
+    -e CONTROL_TOKEN_FILE=/opt/terzaet-control/admin.token \
+    "$image" >/dev/null; then
+    fail "control service failed to start"
+fi
 printf '%s\n' "$doc_url" > "$install_dir/document-url"
 chmod 600 "$install_dir/document-url"
 printf '%s\n' "$server_revision" > "$install_dir/version"
 chmod 600 "$install_dir/version"
 printf 'PROGRESS=100|Сервер готов\n'
-printf 'OK\nCONTAINER=%s\nTRANSPORT=%s\nBACKUP=%s\n' "$container" "$detected" "$backup_dir"
+printf 'OK\nCONTAINER=%s\nCONTROL=%s\nTRANSPORT=%s\nBACKUP=%s\n' "$container" "$control_container" "$detected" "$backup_dir"

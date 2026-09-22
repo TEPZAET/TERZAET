@@ -314,6 +314,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun teardown(finalState: TunnelState) {
+        if (teardownJob?.isActive == true) return
         val closingTunnel = _active.value.tunnel ?: activeTunnelData
         _active.value = TunnelState.Stopping(closingTunnel)
         startJob?.cancel()

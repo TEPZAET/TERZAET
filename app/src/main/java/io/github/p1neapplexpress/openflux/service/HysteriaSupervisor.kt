@@ -13,6 +13,7 @@ import java.net.URI
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -31,6 +32,7 @@ class HysteriaSupervisor(
     private val running = AtomicBoolean(false)
     private val ready = AtomicBoolean(false)
     private val stopping = AtomicBoolean(false)
+    private val generation = AtomicLong(0L)
     private val controller = HysteriaFdController(protectSocket) { message ->
         EventBus.dispatch(AppEvent.LogMessage(message))
     }
@@ -49,6 +51,7 @@ class HysteriaSupervisor(
 
     fun start(uri: String) {
         if (running.getAndSet(true)) return
+        val startGeneration = generation.incrementAndGet()
         stopping.set(false)
         ready.set(false)
         error = null
@@ -76,13 +79,14 @@ class HysteriaSupervisor(
                 .start()
             process = p
             val output = thread(name = "HysteriaOutput", isDaemon = true) { pumpOutput(p) }
-            thread(name = "HysteriaWatch", isDaemon = true) { watch(p, output) }
+            thread(name = "HysteriaWatch", isDaemon = true) { watch(p, output, startGeneration) }
         } catch (e: Exception) {
             error("Не удалось запустить Hysteria 2: ${e.message}")
         }
     }
 
     fun stop() {
+        generation.incrementAndGet()
         stopping.set(true)
         ready.set(false)
         running.set(false)
@@ -128,9 +132,9 @@ class HysteriaSupervisor(
         }.getOrDefault(-1L)
     }
 
-    private fun watch(process: Process, output: Thread) {
+    private fun watch(process: Process, output: Thread, startGeneration: Long) {
         val deadline = System.currentTimeMillis() + READY_TIMEOUT_MS
-        while (!stopping.get() && process.isAlive) {
+        while (!stopping.get() && generation.get() == startGeneration && process.isAlive) {
             if (Loopback.canConnect(socksPort, 200)) {
                 ready.set(true)
                 EventBus.dispatch(AppEvent.TransportConnected)
@@ -144,7 +148,7 @@ class HysteriaSupervisor(
             Thread.sleep(200L)
         }
         val code = process.waitFor()
-        if (stopping.get() || this.process !== process) return
+        if (stopping.get() || generation.get() != startGeneration || this.process !== process) return
         output.join(STOP_GRACE_MS)
         fail("Hysteria 2 завершилась с кодом $code: ${lastOutput ?: "без сообщения"}")
     }

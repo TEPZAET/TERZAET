@@ -89,6 +89,7 @@ class ServersFragment : BaseFragment() {
                 alpha = if (active) 0.3f else 1f
                 setOnClickListener { if (!active) confirmDelete(tunnel) }
             }
+            row.findViewById<MaterialButton>(R.id.serverUsers).setOnClickListener { open(UserManagementFragment.new(tunnel)) }
             list.addView(row)
         }
     }

@@ -14,4 +14,6 @@
         <com.google.android.material.button.MaterialButton android:id="@+id/serverYandex" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:text="ЯDoc" android:textAllCaps="false" android:textSize="12sp" app:cornerRadius="16dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/serverHysteria" android:layout_width="0dp" android:layout_height="42dp" android:layout_marginStart="8dp" android:layout_weight="1" android:text="Hy2" android:textAllCaps="false" android:textSize="12sp" app:cornerRadius="16dp" />
     </LinearLayout>
+    <com.google.android.material.button.MaterialButton android:id="@+id/serverUsers" android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginTop="8dp"
+        android:text="Пользователи и ключи" android:textAllCaps="false" android:textSize="12sp" app:cornerRadius="16dp" />
 </LinearLayout>

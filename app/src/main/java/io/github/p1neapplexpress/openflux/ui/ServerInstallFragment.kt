@@ -50,6 +50,9 @@ class ServerInstallFragment : BaseFragment() {
     private lateinit var spinner: ProgressBar
     private lateinit var statusContainer: LinearLayout
     private lateinit var button: MaterialButton
+    private lateinit var wizardStep: TextView
+    private var stepIndex = 0
+    private var pendingRequest: InstallRequest? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, state: Bundle?) =
         inflater.inflate(R.layout.fragment_server_install, container, false)
@@ -61,6 +64,8 @@ class ServerInstallFragment : BaseFragment() {
         spinner = view.findViewById(R.id.installSpinner)
         statusContainer = view.findViewById(R.id.installStatusContainer)
         button = view.findViewById(R.id.installButton)
+        wizardStep = view.findViewById(R.id.wizardStep)
+        setWizardStep(0)
         val name = view.findViewById<EditText>(R.id.serverName)
         val host = view.findViewById<EditText>(R.id.serverHost)
         val user = view.findViewById<EditText>(R.id.serverUser)
@@ -104,6 +109,18 @@ class ServerInstallFragment : BaseFragment() {
                 installHysteria = hysteriaSwitch.isChecked,
             )
             if (!encryptionSwitch.isChecked) encryption.text.clear()
+            if (stepIndex == 3) {
+                requireActivity().findViewById<ViewPager2>(R.id.view_pager)?.setCurrentItem(0, true)
+                return@setOnClickListener
+            }
+            if (stepIndex == 1) {
+                setWizardStep(2)
+                return@setOnClickListener
+            }
+            if (stepIndex == 2) {
+                pendingRequest?.let(::install)
+                return@setOnClickListener
+            }
             if (!request.valid()) {
                 status.text = "Заполните название, IP, логин, пароль и ссылку на документ. Ключ можно оставить пустым."
                 return@setOnClickListener
@@ -113,6 +130,7 @@ class ServerInstallFragment : BaseFragment() {
                 return@setOnClickListener
             }
             password.text.clear()
+            pendingRequest = request
             inspectThenInstall(request)
         }
     }
@@ -163,8 +181,8 @@ class ServerInstallFragment : BaseFragment() {
                 } else {
                     "100% · Сервер установлен\n${installed.transportLabel}"
                 }
-                button.text = "Готово"
-                requireActivity().findViewById<ViewPager2>(R.id.view_pager)?.setCurrentItem(0, true)
+                setWizardStep(3)
+                status.text = "Сервер готов\nНажмите «Протестировать подключение»"
             }.onFailure { error ->
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(error)
@@ -191,9 +209,11 @@ class ServerInstallFragment : BaseFragment() {
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(it)
             }.onSuccess { (check, found) ->
-                status.text = "VDS готов · Docker ${if (check.dockerReady) "готов" else "будет установлен"} · свободно ${check.freeGb} ГБ · HTTPS доступен"
+                status.text = "Аудит VDS завершён\n${check.os} · CPU ${check.cpu} · RAM ${check.ram} · диск ${check.freeGb} ГБ\nDocker ${if (check.dockerReady) "готов" else "будет установлен"} · HTTPS доступен"
                 if (!found.terzaet && !found.openFlux) {
-                    install(request)
+                    pendingRequest = request
+                    status.text = "Аудит завершён · конфликтов не найдено\nПроверьте протоколы на следующем шаге"
+                    setWizardStep(1)
                     return@onSuccess
                 }
                 val labels = buildList {
@@ -204,7 +224,10 @@ class ServerInstallFragment : BaseFragment() {
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle("На VDS найдена предыдущая установка")
                     .setMultiChoiceItems(labels.toTypedArray(), checked) { _, index, value -> checked[index] = value }
-                    .setNeutralButton("Оставить и продолжить") { _, _ -> install(request) }
+                    .setNeutralButton("Оставить и продолжить") { _, _ ->
+                        pendingRequest = request
+                        setWizardStep(1)
+                    }
                     .setNegativeButton(R.string.cancel, null)
                     .setPositiveButton("Удалить выбранное") { _, _ ->
                         var cursor = 0
@@ -238,7 +261,7 @@ class ServerInstallFragment : BaseFragment() {
                 "(command -v apt-get >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v apk >/dev/null 2>&1) && p=1 || true; " +
                 "f=\$(df -Pk / | awk 'NR==2 {print \$4}'); " +
                 "(curl -fsI --max-time 12 https://disk.yandex.ru >/dev/null 2>&1 || wget -q --spider -T 12 https://disk.yandex.ru >/dev/null 2>&1) && h=1 || true; " +
-                "printf 'DOCKER=%s PACKAGE=%s FREE=%s HTTPS=%s' \"\$d\" \"\$p\" \"\$f\" \"\$h\""
+                "cpu=\$(nproc 2>/dev/null || echo '?'); ram=\$(awk '/MemTotal/ {printf \"%.1fG\", \$2/1048576}' /proc/meminfo 2>/dev/null || echo '?'); os=\$(. /etc/os-release 2>/dev/null && printf '%s' \"\$PRETTY_NAME\" || uname -s); printf 'DOCKER=%s PACKAGE=%s FREE=%s HTTPS=%s CPU=%s RAM=%s OS=%s' \"\$d\" \"\$p\" \"\$f\" \"\$h\" \"\$cpu\" \"\$ram\" \"\$os\""
         )
         val docker = output.contains("DOCKER=1")
         val packageManager = output.contains("PACKAGE=1")
@@ -247,7 +270,10 @@ class ServerInstallFragment : BaseFragment() {
         if (!docker && !packageManager) error("PREFLIGHT_DOCKER")
         if (freeKb < 1_048_576L) error("PREFLIGHT_SPACE")
         if (!https) error("PREFLIGHT_HTTPS")
-        Preflight(docker, freeKb / 1_048_576L)
+        val cpu = Regex("CPU=([^ ]+)").find(output)?.groupValues?.get(1) ?: "?"
+        val ram = Regex("RAM=([^ ]+)").find(output)?.groupValues?.get(1) ?: "?"
+        val os = Regex("OS=(.+)$").find(output)?.groupValues?.get(1)?.trim() ?: "Linux"
+        Preflight(docker, freeKb / 1_048_576L, cpu, ram, os)
     }
 
     private fun removeSelectedThenInstall(request: InstallRequest, terzaet: Boolean, openFlux: Boolean) {
@@ -262,10 +288,26 @@ class ServerInstallFragment : BaseFragment() {
             val result = withContext(Dispatchers.IO) { removeDetected(request, terzaet, openFlux) }
             spinner.visibility = View.GONE
             button.isEnabled = true
-            result.onSuccess { install(request) }.onFailure {
+            result.onSuccess {
+                pendingRequest = request
+                status.text = "Аудит завершён · старые компоненты удалены\nПроверьте протоколы на следующем шаге"
+                setWizardStep(1)
+            }.onFailure {
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(it)
             }
+        }
+    }
+
+    private fun setWizardStep(index: Int) {
+        stepIndex = index.coerceIn(0, 3)
+        val labels = arrayOf("Шаг 1 из 4 · Данные подключения", "Шаг 2 из 4 · Диагностика VDS", "Шаг 3 из 4 · Протоколы", "Шаг 4 из 4 · Сервер готов")
+        wizardStep.text = labels[stepIndex]
+        button.text = when (stepIndex) {
+            0 -> "Далее: проверить сервер"
+            1 -> "Далее: выбрать протоколы"
+            2 -> "Развернуть и настроить"
+            else -> "Протестировать подключение"
         }
     }
 
@@ -468,7 +510,7 @@ class ServerInstallFragment : BaseFragment() {
     }
 
     private data class DetectedInstall(val terzaet: Boolean, val openFlux: Boolean)
-    private data class Preflight(val dockerReady: Boolean, val freeGb: Long)
+    private data class Preflight(val dockerReady: Boolean, val freeGb: Long, val cpu: String, val ram: String, val os: String)
 
     private class FirstUseInfo(private val password: String) : UserInfo, UIKeyboardInteractive {
         override fun getPassword() = password

@@ -113,8 +113,23 @@ class UserManagementFragment : BaseFragment() {
             row.addView(TextView(requireContext()).apply { text = "${user.alias}\n${if (user.revokedAt == null) "Доступ активен" else "Доступ отозван"}"; textSize = 15f; setTextColor(resources.getColor(io.github.p1neapplexpress.openflux.R.color.text_primary, context.theme)) })
             val copy = MaterialButton(requireContext()).apply { text = "Скопировать ключ"; isAllCaps = false; setOnClickListener { showBundle(user.bundle) } }
             row.addView(copy)
+            if (user.revokedAt == null) row.addView(MaterialButton(requireContext()).apply { text = "Отозвать доступ"; isAllCaps = false; setOnClickListener { askPasswordForAction(user.id, false) } })
+            row.addView(MaterialButton(requireContext()).apply { text = "Удалить"; isAllCaps = false; setOnClickListener { askPasswordForAction(user.id, true) } })
             list.addView(row)
         }
+    }
+
+    private fun askPasswordForAction(id: String, delete: Boolean) {
+        val tunnel = currentTunnel() ?: return
+        val password = EditText(requireContext()).apply { inputType = 0x81; hint = "Пароль VDS" }
+        MaterialAlertDialogBuilder(requireContext()).setTitle(if (delete) "Удалить пользователя?" else "Отозвать доступ?").setView(password)
+            .setNegativeButton("Отмена", null).setPositiveButton("Подтвердить") { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching { ControlApiClient(tunnel.adminHost!!, tunnel.adminUser!!, tunnel.adminPort ?: 22, password.text.toString()).use { if (delete) it.deleteUser(id) else it.revokeUser(id) } }
+                        .onSuccess { requireActivity().runOnUiThread { status.text = if (delete) "Пользователь удалён" else "Доступ отозван"; loadUsers() } }
+                        .onFailure { requireActivity().runOnUiThread { status.text = "Ошибка API: ${it.message}" } }
+                }
+            }.show()
     }
     private fun currentTunnel(): Tunnel? = vm.tunnels.value.map { it.tunnel }.firstOrNull { it.id == tunnelId }
 

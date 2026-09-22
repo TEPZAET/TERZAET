@@ -33,9 +33,11 @@ class HysteriaSupervisor(
     private val ready = AtomicBoolean(false)
     private val stopping = AtomicBoolean(false)
     private val generation = AtomicLong(0L)
-    private val controller = HysteriaFdController(protectSocket) { message ->
-        EventBus.dispatch(AppEvent.LogMessage(message))
-    }
+    private val controller = HysteriaFdController(
+        protect = protectSocket,
+        onFailure = { message -> EventBus.dispatch(AppEvent.LogMessage(message)) },
+        onProtected = { EventBus.dispatch(AppEvent.LogMessage("Hy2: UDP-сокет подготовлен")) },
+    )
     private var process: Process? = null
     private var lastOutput: String? = null
 
@@ -158,7 +160,11 @@ class HysteriaSupervisor(
             process.inputStream.bufferedReader().useLines { lines ->
                 lines.filter { it.isNotBlank() }.forEach { line ->
                     lastOutput = line
-                    EventBus.dispatch(AppEvent.LogMessage(line))
+                    if (line.contains("error", ignoreCase = true) || line.contains("fatal", ignoreCase = true) || line.contains("failed", ignoreCase = true)) {
+                        EventBus.dispatch(AppEvent.LogMessage("Hy2: $line"))
+                    } else {
+                        EventBus.dispatch(AppEvent.LogMessage(line))
+                    }
                 }
             }
         }

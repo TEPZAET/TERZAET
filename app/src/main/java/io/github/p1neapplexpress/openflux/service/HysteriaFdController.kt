@@ -12,6 +12,7 @@ import kotlin.concurrent.thread
 class HysteriaFdController(
     private val protect: (Int) -> Boolean,
     private val onFailure: (String) -> Unit,
+    private val onProtected: () -> Unit,
 ) {
     private val running = AtomicBoolean(false)
     private var server: LocalServerSocket? = null
@@ -28,6 +29,7 @@ class HysteriaFdController(
                     val descriptor = if (received >= 0) it.ancillaryFileDescriptors?.firstOrNull() else null
                     val ok = descriptor?.let(::protectDescriptor) ?: false
                     if (!ok) onFailure(if (received < 0) "Hysteria 2 не передала UDP-сокет" else "Не удалось защитить UDP-сокет Hysteria 2")
+                    else onProtected()
                     runCatching {
                         it.outputStream.write(if (ok) 1 else 0)
                         it.outputStream.flush()

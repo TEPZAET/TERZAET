@@ -58,7 +58,13 @@ else
   auth="$(openssl rand -hex 24)"
 fi
 printf '%s' "$auth" > "$base_dir/auth"
-chmod 600 "$base_dir/auth" "$base_dir/server.key"
+if [ -s "$base_dir/obfs-password" ]; then
+  obfs_password="$(cat "$base_dir/obfs-password")"
+else
+  obfs_password="$(openssl rand -hex 32)"
+fi
+printf '%s' "$obfs_password" > "$base_dir/obfs-password"
+chmod 600 "$base_dir/auth" "$base_dir/obfs-password" "$base_dir/server.key"
 cat > "$base_dir/config.yaml" <<EOF
 listen: :${port}
 tls:
@@ -68,6 +74,10 @@ tls:
 auth:
   type: password
   password: ${auth}
+obfs:
+  type: salamander
+  salamander:
+    password: ${obfs_password}
 EOF
 
 cat > "$base_dir/Dockerfile" <<EOF
@@ -90,5 +100,5 @@ docker run -d --name "$container" --restart unless-stopped \
 sleep 2
 docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -q true || { docker logs "$container" >&2 || true; exit 1; }
 fingerprint="$(openssl x509 -noout -fingerprint -sha256 -in "$base_dir/server.crt" | cut -d= -f2 | tr -d ':')"
-printf 'HY2_URI=hysteria2://%s@%s:%s/?insecure=1&pinSHA256=%s\n' "$auth" "$host" "$port" "$fingerprint"
+printf 'HY2_URI=hysteria2://%s@%s:%s/?insecure=1&obfs=salamander&obfs-password=%s&pinSHA256=%s\n' "$auth" "$host" "$port" "$obfs_password" "$fingerprint"
 printf 'OK\n'

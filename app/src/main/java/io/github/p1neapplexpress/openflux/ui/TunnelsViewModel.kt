@@ -142,8 +142,14 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startTunnel(tunnel: Tunnel) {
         val running = _active.value
-        if (running.isActive && running.tunnel?.id == tunnel.id) return
-        if (running.isActive) stop()
+        val alreadyStarting = running is TunnelState.Connecting ||
+            running is TunnelState.StartingTransport ||
+            running is TunnelState.StartingTun2Socks ||
+            running is TunnelState.Checking ||
+            running is TunnelState.Restoring ||
+            running is TunnelState.Running
+        if (alreadyStarting && running.tunnel?.id == tunnel.id) return
+        if (alreadyStarting) stop()
         val pendingTeardown = teardownJob
 
         repo.setSelectedId(tunnel.id)

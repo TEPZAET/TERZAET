@@ -83,7 +83,7 @@ class ServersFragment : BaseFragment() {
     }
 
     private fun open(fragment: BaseFragment) {
-        parentFragmentManager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_edit").commit()
+        requireActivity().supportFragmentManager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_edit").commit()
     }
 
     override fun onNewEvent(ev: AppEvent) = Unit

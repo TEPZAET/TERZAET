@@ -223,7 +223,7 @@ class TunnelsFragment : BaseFragment() {
         }
         view.findViewById<View>(R.id.settingsIcon).setOnClickListener {
             animatePress(it)
-            parentFragmentManager.beginTransaction().replace(R.id.main, SettingsFragment()).addToBackStack("settings").commit()
+            requireActivity().supportFragmentManager.beginTransaction().replace(R.id.main, SettingsFragment()).addToBackStack("settings").commit()
         }
         view.findViewById<View>(R.id.addButton).setOnClickListener {
             animatePress(it)
@@ -265,7 +265,7 @@ class TunnelsFragment : BaseFragment() {
     }
 
     private fun openManualSetup() {
-            parentFragmentManager.beginTransaction()
+            requireActivity().supportFragmentManager.beginTransaction()
                 .replace(R.id.main, AddTunFragment.new())
                 .addToBackStack("switch")
                 .commit()
@@ -348,7 +348,7 @@ class TunnelsFragment : BaseFragment() {
                     Toast.makeText(requireContext(), "Сначала отключите активный сервер", Toast.LENGTH_SHORT).show()
                 } else {
                     dialog.dismiss()
-                    parentFragmentManager.beginTransaction().replace(R.id.main, AddTunFragment.edit(tunnel)).addToBackStack("server_edit").commit()
+                    requireActivity().supportFragmentManager.beginTransaction().replace(R.id.main, AddTunFragment.edit(tunnel)).addToBackStack("server_edit").commit()
                 }
             }
             delete.setOnClickListener {
@@ -478,7 +478,7 @@ class TunnelsFragment : BaseFragment() {
             }
             menu.dismiss()
             popup?.dismiss()
-            parentFragmentManager.beginTransaction()
+            requireActivity().supportFragmentManager.beginTransaction()
                 .replace(R.id.main, AddTunFragment.edit(tunnel))
                 .addToBackStack("edit")
                 .commit()

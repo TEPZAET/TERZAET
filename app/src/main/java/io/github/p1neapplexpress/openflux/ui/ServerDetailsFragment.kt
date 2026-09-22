@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -36,9 +37,7 @@ class ServerDetailsFragment : BaseFragment() {
         view.findViewById<View>(R.id.detailProtocols).setOnClickListener { showProtocols() }
         view.findViewById<View>(R.id.detailUsers).setOnClickListener { open(UserManagementFragment.new(tunnel)) }
         view.findViewById<View>(R.id.detailConnection).setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext()).setTitle("Подключение к VDS")
-                .setMessage("${tunnel.adminUser ?: "root"}@${tunnel.adminHost}:${tunnel.adminPort ?: 22}\n\nПароль не хранится и всегда вводится заново для действий на сервере.")
-                .setPositiveButton("Понятно", null).show()
+            editConnection()
         }
         view.findViewById<View>(R.id.detailDanger).setOnClickListener { confirmRemove() }
     }
@@ -69,6 +68,22 @@ class ServerDetailsFragment : BaseFragment() {
                         requireActivity().runOnUiThread { MaterialAlertDialogBuilder(requireContext()).setTitle("Удаление не выполнено").setMessage(error.message).setPositiveButton("Понятно", null).show() }
                     }
                 }
+            }.show()
+    }
+
+    private fun editConnection() {
+        val box = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; setPadding(56, 0, 56, 0) }
+        val name = EditText(requireContext()).apply { hint = "Название сервера"; setText(tunnel.name) }
+        val host = EditText(requireContext()).apply { hint = "IP или домен"; setText(tunnel.adminHost) }
+        val user = EditText(requireContext()).apply { hint = "Пользователь"; setText(tunnel.adminUser ?: "root") }
+        val port = EditText(requireContext()).apply { hint = "Порт SSH"; inputType = 2; setText((tunnel.adminPort ?: 22).toString()) }
+        box.addView(name); box.addView(host); box.addView(user); box.addView(port)
+        MaterialAlertDialogBuilder(requireContext()).setTitle("Подключение к VDS").setMessage("Пароль не сохраняется: при действиях на VDS приложение спросит его снова.")
+            .setView(box).setNegativeButton(R.string.cancel, null).setPositiveButton("Сохранить") { _, _ ->
+                val updated = tunnel.copy(name = name.text.toString().trim(), adminHost = host.text.toString().trim(), adminUser = user.text.toString().trim(), adminPort = port.text.toString().toIntOrNull() ?: 22)
+                if (updated.name.isBlank() || updated.adminHost.isNullOrBlank() || updated.adminUser.isNullOrBlank() || updated.adminPort == null || updated.adminPort !in 1..65535) {
+                    MaterialAlertDialogBuilder(requireContext()).setTitle("Проверьте данные").setMessage("Укажите название, адрес, пользователя и корректный SSH-порт.").setPositiveButton("Понятно", null).show()
+                } else vm.updateTunnel(tunnel, updated)
             }.show()
     }
 

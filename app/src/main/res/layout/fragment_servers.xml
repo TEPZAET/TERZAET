@@ -2,10 +2,10 @@
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent"
     android:background="@drawable/bg_screen_ambient" android:fillViewport="true">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp" android:paddingTop="42dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Серверы" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Конфигурации подключения" android:textColor="@color/text_secondary" android:textSize="13sp" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Мои серверы" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Установленные VDS и управление протоколами" android:textColor="@color/text_secondary" android:textSize="13sp" />
         <LinearLayout android:id="@+id/serverList" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:orientation="vertical" />
         <com.google.android.material.button.MaterialButton android:id="@+id/serverAdd" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="14dp"
-            android:text="Добавить сервер" android:textAllCaps="false" android:textColor="#FFFFFF" android:backgroundTint="#3D4247" app:cornerRadius="20dp" xmlns:app="http://schemas.android.com/apk/res-auto" />
+            android:text="Создать новый сервер" android:textAllCaps="false" android:textColor="#FFFFFF" android:backgroundTint="#3D4247" app:cornerRadius="20dp" xmlns:app="http://schemas.android.com/apk/res-auto" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

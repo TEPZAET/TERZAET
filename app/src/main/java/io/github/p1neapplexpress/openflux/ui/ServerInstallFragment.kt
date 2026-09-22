@@ -44,6 +44,8 @@ import java.net.URL
 
 class ServerInstallFragment : BaseFragment() {
 
+    companion object { fun new() = ServerInstallFragment() }
+
     private val vm: TunnelsViewModel by activityViewModels()
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar

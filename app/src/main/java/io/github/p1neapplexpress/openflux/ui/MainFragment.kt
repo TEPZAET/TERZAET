@@ -56,7 +56,7 @@ class MainFragment : BaseFragment() {
         override fun getItemCount(): Int = 4
         override fun createFragment(position: Int): Fragment = when (position) {
             0 -> TunnelsFragment()
-            1 -> ServerInstallFragment()
+            1 -> ServersFragment()
             2 -> LogsFragment()
             3 -> AboutFragment()
             else -> error("bad position $position")

@@ -22,6 +22,9 @@ import io.github.p1neapplexpress.openflux.event.AppEvent
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import com.jcraft.jsch.JSch
+import java.io.File
 
 class ServersFragment : BaseFragment() {
     private val vm: TunnelsViewModel by activityViewModels()
@@ -32,10 +35,10 @@ class ServersFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, state: Bundle?) {
         list = view.findViewById(R.id.serverList)
-        view.findViewById<View>(R.id.serverAdd).setOnClickListener { open(AddTunFragment.new()) }
+        view.findViewById<View>(R.id.serverAdd).setOnClickListener { open(ServerInstallFragment.new()) }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                vm.tunnels.collect { items -> render(items.map { it.tunnel }) }
+                vm.tunnels.collect { items -> render(items.map { it.tunnel }.filter { !it.adminHost.isNullOrBlank() }) }
             }
         }
     }
@@ -82,8 +85,7 @@ class ServersFragment : BaseFragment() {
             row.setOnClickListener { vm.selectTunnel(tunnel) }
             val active = vm.active.value.isActive && vm.active.value.tunnel?.id == tunnel.id
             row.findViewById<ImageButton>(R.id.serverEdit).apply {
-                alpha = if (active) 0.3f else 1f
-                setOnClickListener { if (!active) open(AddTunFragment.edit(tunnel)) }
+                visibility = View.GONE
             }
             row.findViewById<ImageButton>(R.id.serverDelete).apply {
                 alpha = if (active) 0.3f else 1f
@@ -102,12 +104,35 @@ class ServersFragment : BaseFragment() {
     }
 
     private fun confirmDelete(tunnel: Tunnel) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.delete_config_title)
-            .setMessage(tunnel.name)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.action_delete) { _, _ -> vm.removeTunnel(tunnel) }
-            .show()
+        val password = android.widget.EditText(requireContext()).apply { inputType = 0x81; hint = "Пароль VDS" }
+        MaterialAlertDialogBuilder(requireContext()).setTitle("Удалить TERZAET с VDS?")
+            .setMessage("Будут удалены только контейнеры TERZAET и control API. Amnezia и другие VPN не затрагиваются.")
+            .setView(password).setNegativeButton(R.string.cancel, null)
+            .setPositiveButton("Удалить с VDS") { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching { removeVds(tunnel, password.text.toString()) }
+                        .onSuccess { requireActivity().runOnUiThread { vm.removeTunnel(tunnel) } }
+                        .onFailure { requireActivity().runOnUiThread { MaterialAlertDialogBuilder(requireContext()).setTitle("Удаление не выполнено").setMessage(it.message).setPositiveButton("Понятно", null).show() } }
+                }
+            }.show()
+    }
+
+    private fun removeVds(tunnel: Tunnel, password: String) {
+        val jsch = JSch()
+        val known = File(requireContext().filesDir, "ssh_known_hosts")
+        if (!known.exists()) known.createNewFile()
+        jsch.setKnownHosts(known.absolutePath)
+        val session = jsch.getSession(tunnel.adminUser ?: "root", tunnel.adminHost, tunnel.adminPort ?: 22)
+        session.setPassword(password)
+        session.setConfig("StrictHostKeyChecking", "ask")
+        session.connect(15_000)
+        val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
+        channel.setCommand("docker rm -f terzaet-yandex terzaet-hysteria terzaet-control >/dev/null 2>&1 || true; systemctl disable --now terzaet-hysteria.service >/dev/null 2>&1 || true; rm -rf /opt/terzaet /opt/terzaet-hysteria")
+        channel.connect(15_000)
+        while (!channel.isClosed) Thread.sleep(50)
+        val code = channel.exitStatus
+        channel.disconnect(); session.disconnect()
+        if (code != 0) error("VDS вернул код $code")
     }
 
     private fun open(fragment: BaseFragment) {

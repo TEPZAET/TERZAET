@@ -170,6 +170,7 @@ class AddTunFragment : BaseFragment() {
                 requestHysteriaInstall(original, candidate, host, user, port)
             }
         }
+        UiAppearance.apply(view)
     }
 
     private fun requestHysteriaInstall(original: Tunnel, candidate: Tunnel, host: String, user: String, port: Int) {

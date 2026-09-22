@@ -66,6 +66,7 @@ class LogsFragment : BaseFragment() {
                 if (event is AppEvent.LogMessage) event.message.lineSequence().filter { it.isNotBlank() }.forEach(::appendCard)
             }
         }
+        UiAppearance.apply(view)
     }
 
     private fun appendCard(raw: String) {

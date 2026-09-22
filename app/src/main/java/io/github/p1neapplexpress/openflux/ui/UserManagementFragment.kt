@@ -45,8 +45,10 @@ class UserManagementFragment : BaseFragment() {
         content = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(22, 42, 22, 28) }
         scroller.addView(content)
         val hero = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(18), dp(20), dp(18), dp(20)); setBackgroundResource(io.github.p1neapplexpress.openflux.R.drawable.glass_panel) }
-        val emblem = TextView(context).apply {
-            text = "⌘"; textSize = 29f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+        val emblem = ImageView(context).apply {
+            setImageResource(io.github.p1neapplexpress.openflux.R.drawable.ic_admin_users)
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            setPadding(dp(16), dp(16), dp(16), dp(16))
             background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; colors = intArrayOf(Color.rgb(69, 144, 109), Color.rgb(35, 103, 77)) }
         }
         hero.addView(emblem, LinearLayout.LayoutParams(dp(58), dp(58)))
@@ -59,7 +61,7 @@ class UserManagementFragment : BaseFragment() {
         val statusCard = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(13), dp(16), dp(13)); setBackgroundResource(io.github.p1neapplexpress.openflux.R.drawable.bg_glass_field) }
         statusCard.addView(TextView(context).apply { text = "●"; textSize = 13f; setTextColor(Color.rgb(54, 153, 108)) })
         status = TextView(context).apply { text = "Пароль запрашивается для каждого действия"; textSize = 13f; setTextColor(resources.getColor(io.github.p1neapplexpress.openflux.R.color.text_secondary, context.theme)); setPadding(dp(10), 0, 0, 0) }
-        statusCard.addView(status); content.addView(statusCard)
+        statusCard.addView(status, LinearLayout.LayoutParams(0, -2, 1f)); content.addView(statusCard)
         val add = MaterialButton(context).apply {
             text = "Добавить пользователя"; isAllCaps = false; textSize = 15f
             setIconResource(io.github.p1neapplexpress.openflux.R.drawable.ic_user_add); iconPadding = dp(10)
@@ -71,7 +73,7 @@ class UserManagementFragment : BaseFragment() {
         return scroller
     }
 
-    override fun onViewCreated(view: View, state: Bundle?) { super.onViewCreated(view, state); loadUsers() }
+    override fun onViewCreated(view: View, state: Bundle?) { super.onViewCreated(view, state); UiAppearance.apply(view); loadUsers() }
 
     private fun askPasswordAndCreate() {
         val password = EditText(requireContext()).apply { inputType = 0x81; hint = "Пароль VDS" }
@@ -149,8 +151,18 @@ class UserManagementFragment : BaseFragment() {
             heading.addView(identity, LinearLayout.LayoutParams(0, -2, 1f)); row.addView(heading)
             val copy = MaterialButton(requireContext()).apply { text = "Показать ключ и QR"; isAllCaps = false; setIconResource(io.github.p1neapplexpress.openflux.R.drawable.ic_key); iconPadding = dp(8); setOnClickListener { showBundle(user.bundle) } }
             row.addView(copy, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
-            if (user.revokedAt == null) row.addView(MaterialButton(requireContext()).apply { text = "Отозвать доступ"; isAllCaps = false; setOnClickListener { askPasswordForAction(user.id, false) } })
-            row.addView(MaterialButton(requireContext()).apply { text = "Удалить пользователя"; isAllCaps = false; setOnClickListener { askPasswordForAction(user.id, true) } })
+            val actions = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL }
+            if (user.revokedAt == null) actions.addView(MaterialButton(requireContext()).apply {
+                text = "Отозвать"; isAllCaps = false; textSize = 12f
+                setOnClickListener { askPasswordForAction(user.id, false) }
+            }, LinearLayout.LayoutParams(0, dp(46), 1f))
+            actions.addView(MaterialButton(requireContext()).apply {
+                text = "Удалить"; isAllCaps = false; textSize = 12f
+                setTextColor(Color.rgb(151, 69, 75))
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(255, 239, 240))
+                setOnClickListener { askPasswordForAction(user.id, true) }
+            }, LinearLayout.LayoutParams(0, dp(46), 1f).apply { if (user.revokedAt == null) marginStart = dp(8) })
+            row.addView(actions, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
             list.addView(row)
             row.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
         }

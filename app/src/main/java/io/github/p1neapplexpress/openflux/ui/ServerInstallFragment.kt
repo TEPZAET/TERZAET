@@ -153,6 +153,7 @@ class ServerInstallFragment : BaseFragment() {
             pendingRequest = request
             inspectThenInstall(request)
         }
+        UiAppearance.apply(view)
     }
 
     private fun install(request: InstallRequest) {

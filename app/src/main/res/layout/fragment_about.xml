@@ -1,66 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/bg_screen_ambient"
-    android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="24dp"
-        android:paddingTop="48dp"
-        android:paddingBottom="32dp">
-
-        <ImageView
-            android:id="@+id/aboutLogo"
-            android:layout_width="92dp"
-            android:layout_height="92dp"
-            android:contentDescription="@string/app_name"
-            android:src="@drawable/terzaet_logo" />
-
-        <TextView
-            android:id="@+id/aboutTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:fontFamily="sans"
-            android:letterSpacing="0.08"
-            android:text="TERZAET"
-            android:textColor="@color/text_primary"
-            android:textSize="29sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/versionText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:background="@drawable/glass_panel"
-            android:lineSpacingExtra="4dp"
-            android:padding="20dp"
-            android:text="TERZAET — независимый неофициальный форк OpenFluxAndroid/OpenFlux.\n\nВсе конфигурации хранятся на устройстве. Пароль от VDS не сохраняется."
-            android:textColor="@color/text_primary"
-            android:textSize="14sp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/glass_panel"
-            android:lineSpacingExtra="5dp"
-            android:padding="20dp"
-            android:text="Частые ошибки\n\nОшибка: сервер не отвечает\nРешение: проверьте оплату VDS, IP, SSH-порт и доступ VDS к интернету.\n\nОшибка: Яндекс запросил CAPTCHA\nРешение: это ограничение для IP сервера. Создайте новый документ или смените IP VDS.\n\nОшибка: VPN не запускается\nРешение: подтвердите системное разрешение VPN и выключите другой VPN.\n\nОшибка: не удалось войти на VDS\nРешение: проверьте логин, пароль и разрешён ли вход по SSH."
-            android:textColor="@color/text_primary"
-            android:textSize="14sp" />
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_screen_ambient" android:fillViewport="true">
+    <LinearLayout android:id="@+id/aboutContent" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="22dp" android:paddingTop="40dp" android:paddingBottom="34dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:orientation="vertical" android:padding="24dp" android:background="@drawable/glass_panel">
+            <ImageView android:id="@+id/aboutLogo" android:layout_width="84dp" android:layout_height="84dp" android:contentDescription="TERZAET" android:src="@drawable/terzaet_logo" />
+            <TextView android:id="@+id/aboutTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="13dp" android:fontFamily="sans" android:letterSpacing="0.08" android:text="TERZAET" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
+            <TextView android:id="@+id/versionText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:background="@drawable/bg_glass_field" android:paddingHorizontal="14dp" android:paddingTop="7dp" android:paddingBottom="7dp" android:textColor="@color/text_secondary" android:textSize="12sp" />
+        </LinearLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:layout_marginBottom="10dp" android:text="О ПРОЕКТЕ" android:textColor="@color/text_tertiary" android:textSize="11sp" android:letterSpacing="0.1" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="18dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Независимый форк" android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:lineSpacingExtra="3dp" android:text="TERZAET — независимый неофициальный форк OpenFluxAndroid/OpenFlux." android:textColor="@color/text_secondary" android:textSize="14sp" />
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:layout_marginBottom="14dp" android:background="#55A9ADA9" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Конфиденциальность" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:lineSpacingExtra="3dp" android:text="Конфигурации хранятся на устройстве. Пароль от VDS не сохраняется." android:textColor="@color/text_secondary" android:textSize="13sp" />
+        </LinearLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:layout_marginBottom="10dp" android:text="ЧАСТЫЕ СИТУАЦИИ" android:textColor="@color/text_tertiary" android:textSize="11sp" android:letterSpacing="0.1" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="18dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Сервер не отвечает" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Проверьте оплату VDS, IP, SSH-порт и доступ сервера к интернету." android:textColor="@color/text_secondary" android:textSize="13sp" />
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp" android:background="#55A9ADA9" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Яндекс запросил CAPTCHA" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Создайте новый документ или смените IP VDS." android:textColor="@color/text_secondary" android:textSize="13sp" />
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp" android:background="#55A9ADA9" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="VPN не запускается" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Подтвердите системный запрос VPN и отключите другой VPN." android:textColor="@color/text_secondary" android:textSize="13sp" />
+        </LinearLayout>
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

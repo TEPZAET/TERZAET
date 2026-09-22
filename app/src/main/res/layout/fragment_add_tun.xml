@@ -144,22 +144,22 @@
             android:layout_width="match_parent"
             android:layout_height="58dp"
             android:layout_marginTop="18dp"
-            android:backgroundTint="#383D42"
+            android:backgroundTint="@color/colorPrimary"
             android:text="Добавить"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
             app:cornerRadius="20dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/updateVdsButton"
             android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
-            android:text="Применить документ на VDS" android:textAllCaps="false" android:textColor="#202327"
-            android:backgroundTint="#E5B642" android:visibility="gone" app:cornerRadius="20dp" />
+            android:text="Обновить документ на VDS" android:textAllCaps="false" android:textColor="#2E7552"
+            android:backgroundTint="#DDF2E6" android:visibility="gone" app:cornerRadius="20dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/installHysteriaButton"
             android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
-            android:text="Установить Hysteria 2 на VDS" android:textAllCaps="false" android:textColor="#FFFFFF"
-            android:backgroundTint="#3D4247" android:visibility="gone" app:cornerRadius="20dp" />
+            android:text="Установить Hysteria 2" android:textAllCaps="false" android:textColor="#2E7552"
+            android:backgroundTint="#DDF2E6" android:visibility="gone" app:cornerRadius="20dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/removeFromVdsButton"
             android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
             android:text="Удалить TERZAET с VDS" android:textAllCaps="false" android:textColor="@color/state_error"
-            android:backgroundTint="#CCFFFFFF" android:visibility="gone" app:cornerRadius="20dp" />
+            android:backgroundTint="#FFF0F0" android:visibility="gone" app:cornerRadius="20dp" app:strokeColor="#C78282" app:strokeWidth="1dp" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

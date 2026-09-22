@@ -49,6 +49,7 @@ class ServerDetailsFragment : BaseFragment() {
             child.translationY = 12f * resources.displayMetrics.density
             child.animate().alpha(1f).translationY(0f).setStartDelay(index * 35L).setDuration(300).setInterpolator(DecelerateInterpolator()).start()
         }
+        UiAppearance.apply(view)
     }
 
     private fun action(view: View, id: Int, icon: Int, title: String, subtitle: String, click: () -> Unit) {

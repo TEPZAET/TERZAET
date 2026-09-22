@@ -25,6 +25,7 @@ class AboutFragment : BaseFragment() {
         title.translationY = 12f
         logo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(420L).start()
         title.animate().alpha(1f).translationY(0f).setStartDelay(100L).setDuration(420L).start()
+        UiAppearance.apply(view)
     }
 
     override fun onNewEvent(ev: AppEvent) = Unit

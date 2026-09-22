@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.ImageView
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -32,6 +33,7 @@ class ServersFragment : BaseFragment() {
     override fun onViewCreated(view: View, state: Bundle?) {
         list = view.findViewById(R.id.serverList)
         view.findViewById<View>(R.id.serverAdd).setOnClickListener { open(ServerInstallFragment.new()) }
+        UiAppearance.apply(view)
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 vm.tunnels.collect { items -> render(items.map { it.tunnel }.filter { !it.adminHost.isNullOrBlank() }) }
@@ -42,12 +44,11 @@ class ServersFragment : BaseFragment() {
     private fun render(items: List<Tunnel>) {
         list.removeAllViews()
         if (items.isEmpty()) {
-            list.addView(TextView(requireContext()).apply {
-                text = getString(R.string.no_configs)
-                setTextColor(resources.getColor(R.color.text_secondary, context.theme))
-                textSize = 14f
-                setPadding(12, 24, 12, 24)
-            })
+            val empty = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = android.view.Gravity.CENTER; setPadding(dp(24), dp(24), dp(24), dp(24)); setBackgroundResource(R.drawable.glass_panel) }
+            empty.addView(ImageView(requireContext()).apply { setImageResource(R.drawable.ic_admin_server); imageTintList = ColorStateList.valueOf(android.graphics.Color.parseColor("#32865D")); setPadding(dp(14), dp(14), dp(14), dp(14)); background = requireContext().getDrawable(R.drawable.admin_icon_bg) }, LinearLayout.LayoutParams(dp(56), dp(56)))
+            empty.addView(TextView(requireContext()).apply { text = "Здесь появятся ваши VDS"; textSize = 16f; setTypeface(typeface, android.graphics.Typeface.BOLD); gravity = android.view.Gravity.CENTER; setTextColor(resources.getColor(R.color.text_primary, context.theme)); setPadding(0, dp(14), 0, dp(4)) })
+            empty.addView(TextView(requireContext()).apply { text = "Добавьте сервер, чтобы установить TERZAET и управлять подключениями."; textSize = 13f; gravity = android.view.Gravity.CENTER; setTextColor(resources.getColor(R.color.text_secondary, context.theme)) })
+            list.addView(empty)
             return
         }
         items.forEach { tunnel ->
@@ -94,13 +95,15 @@ class ServersFragment : BaseFragment() {
     private fun setModeStyle(button: MaterialButton, selected: Boolean, label: String) {
         button.text = if (selected) "✓  $label" else label
         button.alpha = 1f
-        button.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#3F454A" else "#CCFFFFFF"))
-        button.setTextColor(android.graphics.Color.parseColor(if (selected) "#FFFFFF" else "#3F454A"))
+        button.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#32865D" else "#E6FFFFFF"))
+        button.setTextColor(android.graphics.Color.parseColor(if (selected) "#FFFFFF" else "#4C5358"))
     }
 
     private fun open(fragment: BaseFragment) {
         requireActivity().supportFragmentManager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_edit").commit()
     }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     override fun onNewEvent(ev: AppEvent) = Unit
 }

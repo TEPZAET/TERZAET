@@ -25,7 +25,6 @@ jobs:
         with:
           name: ${{ github.ref_name }}
           body: |-
-            Визуал и стабильность🤍
-            TERZAET — независимый неофициальный форк OpenFluxAndroid/OpenFlux.
+            Будь всегда в сети с TERZAET. Новый вид VPN.
           files: TERZAET-*.apk
           make_latest: true

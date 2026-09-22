@@ -1,80 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_screen_ambient"
-    android:fillViewport="true">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="22dp"
-        android:paddingTop="44dp"
-        android:paddingBottom="36dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="Добавить сервер" android:textColor="@color/text_primary" android:textSize="29sp" android:textStyle="bold" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp"
-            android:text="TERZAET установится отдельно и не изменит другие VPN-сервисы."
-            android:textColor="@color/text_secondary" android:textSize="13sp" android:lineSpacingExtra="3dp" />
-        <TextView android:id="@+id/wizardStep" android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:background="@drawable/glass_panel" android:padding="16dp"
-            android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="22dp"
+            android:paddingTop="42dp"
+            android:paddingBottom="18dp">
 
-        <LinearLayout android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp"
-            android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="16dp">
-            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverNameContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Название сервера">
-                <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverName" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textCapSentences" android:singleLine="true" />
-            </com.google.android.material.textfield.TextInputLayout>
-            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverHostContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="IP или домен">
-                <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverHost" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textUri" android:singleLine="true" />
-            </com.google.android.material.textfield.TextInputLayout>
-            <LinearLayout android:id="@+id/serverUserRow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-                <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Пользователь">
-                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverUser" android:layout_width="match_parent" android:layout_height="56dp" android:text="root" android:singleLine="true" />
-                </com.google.android.material.textfield.TextInputLayout>
-                <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="96dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:hint="Порт">
-                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverPort" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="number" android:text="22" android:singleLine="true" />
-                </com.google.android.material.textfield.TextInputLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Добавить сервер" android:textColor="@color/text_primary" android:textSize="29sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="Проверим VDS, выберем протоколы и настроим подключение." android:textColor="@color/text_secondary" android:textSize="13sp" android:lineSpacingExtra="3dp" />
+            <TextView android:id="@+id/wizardStep" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:background="@drawable/glass_panel" android:padding="16dp" android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+
+            <LinearLayout android:id="@+id/serverConnectionCard" android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Данные доступа к VDS" android:textColor="@color/text_primary" android:textSize="17sp" android:textStyle="bold" android:layout_marginBottom="8dp" />
+                <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverNameContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Название сервера"><com.google.android.material.textfield.TextInputEditText android:id="@+id/serverName" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textCapSentences" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverHostContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="IP или домен"><com.google.android.material.textfield.TextInputEditText android:id="@+id/serverHost" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textUri" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
+                <LinearLayout android:id="@+id/serverUserRow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Пользователь"><com.google.android.material.textfield.TextInputEditText android:id="@+id/serverUser" android:layout_width="match_parent" android:layout_height="56dp" android:text="root" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:layout_width="96dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:hint="Порт"><com.google.android.material.textfield.TextInputEditText android:id="@+id/serverPort" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="number" android:text="22" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+                <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverPasswordContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Пароль VDS" app:helperText="После установки будет сохранён на телефоне в зашифрованном виде."><com.google.android.material.textfield.TextInputEditText android:id="@+id/serverPassword" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textPassword" android:singleLine="true" android:importantForAutofill="no" /></com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
-            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverPasswordContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Пароль" app:endIconMode="password_toggle">
-                <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverPassword" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textPassword" android:singleLine="true" android:importantForAutofill="no" />
-            </com.google.android.material.textfield.TextInputLayout>
-            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverYandexSwitch"
-                android:layout_width="match_parent" android:layout_height="58dp" android:checked="true"
-                android:text="Яндекс Документы" android:textColor="@color/text_primary" app:useMaterialThemeColors="true" />
-            <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverDocumentContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Ссылка на документ Яндекса" app:endIconMode="custom" app:endIconDrawable="@drawable/ic_help_circle" app:endIconContentDescription="Как получить документ Яндекса">
-                <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverDocument" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textUri" android:singleLine="true" />
-            </com.google.android.material.textfield.TextInputLayout>
-            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverHysteriaSwitch"
-                android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="6dp" android:checked="true"
-                android:text="Установить Hy2" android:textColor="@color/text_primary" app:useMaterialThemeColors="true" />
-            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverEncryptionSwitch"
-                android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="8dp"
-                android:text="Дополнительное шифрование" android:textColor="@color/text_primary" app:useMaterialThemeColors="true" />
-            <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:id="@+id/serverEncryptionContainer" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:hint="Ключ шифрования" android:visibility="gone" app:endIconMode="password_toggle" app:helperText="Создаётся локально и сохраняется только на этом устройстве.">
-                <com.google.android.material.textfield.TextInputEditText android:id="@+id/serverEncryption" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textPassword" android:singleLine="true" />
-            </com.google.android.material.textfield.TextInputLayout>
-            <com.google.android.material.button.MaterialButton android:id="@+id/copyEncryptionKey" style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="match_parent" android:layout_height="48dp" android:text="Копировать ключ" android:textAllCaps="false" android:visibility="gone" />
-        </LinearLayout>
 
-        <LinearLayout android:id="@+id/installStatusContainer" android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp"
-            android:background="@drawable/bg_glass_field" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
-            <ProgressBar android:id="@+id/installSpinner" style="?android:attr/progressBarStyleSmall" android:layout_width="26dp" android:layout_height="26dp"
-                android:layout_marginEnd="12dp" android:indeterminate="true" android:visibility="gone" />
-            <TextView android:id="@+id/installStatus" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="Готово к установке" android:textColor="@color/text_secondary" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/serverDiagnosticCard" android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="18dp" android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+                    <ProgressBar android:id="@+id/diagnosticSpinner" style="?android:attr/progressBarStyle" android:layout_width="34dp" android:layout_height="34dp" android:indeterminate="true" android:visibility="gone" />
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp">
+                        <TextView android:id="@+id/diagnosticTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Подготовим проверку VDS" android:textColor="@color/text_primary" android:textSize="17sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/diagnosticLoading" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Проверим систему, ресурсы и старые установки." android:textColor="@color/text_secondary" android:textSize="13sp" />
+                    </LinearLayout>
+                </LinearLayout>
+                <ProgressBar android:id="@+id/diagnosticProgress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="16dp" android:indeterminate="true" android:visibility="gone" />
+                <TextView android:id="@+id/diagnosticData" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/bg_glass_field" android:padding="16dp" android:textColor="@color/text_primary" android:textSize="14sp" android:lineSpacingExtra="5dp" android:visibility="gone" />
+                <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/removeTerzaetCheck" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Удалить старую установку TERZAET" android:textColor="@color/text_primary" android:visibility="gone" />
+                <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/removeOpenFluxCheck" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Удалить старую установку OpenFlux" android:textColor="@color/text_primary" android:visibility="gone" />
+                <TextView android:id="@+id/diagnosticAmnezia" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/text_secondary" android:textSize="13sp" android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/serverProtocolCard" android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="16dp" android:visibility="gone">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Выберите транспорт" android:textColor="@color/text_primary" android:textSize="17sp" android:textStyle="bold" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverYandexSwitch" android:layout_width="match_parent" android:layout_height="58dp" android:checked="true" android:text="Яндекс Документы" android:textColor="@color/text_primary" app:useMaterialThemeColors="true" />
+                <com.google.android.material.textfield.TextInputLayout android:id="@+id/serverDocumentContainer" style="@style/GlassTextInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Ссылка на документ Яндекса" app:endIconMode="custom" app:endIconDrawable="@drawable/ic_help_circle" app:endIconContentDescription="Как получить документ Яндекса"><com.google.android.material.textfield.TextInputEditText android:id="@+id/serverDocument" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textUri" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverHysteriaSwitch" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="6dp" android:checked="true" android:text="Установить Hy2" android:textColor="@color/text_primary" app:useMaterialThemeColors="true" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/serverEncryptionSwitch" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="8dp" android:text="Дополнительное шифрование" android:textColor="@color/text_primary" app:useMaterialThemeColors="true" />
+                <com.google.android.material.textfield.TextInputLayout style="@style/GlassTextInput" android:id="@+id/serverEncryptionContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Ключ шифрования" android:visibility="gone" app:endIconMode="password_toggle" app:helperText="Создаётся локально и сохраняется только на этом устройстве."><com.google.android.material.textfield.TextInputEditText android:id="@+id/serverEncryption" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="textPassword" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.button.MaterialButton android:id="@+id/copyEncryptionKey" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="48dp" android:text="Копировать ключ" android:textAllCaps="false" android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/serverReadyCard" android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/glass_panel" android:orientation="vertical" android:padding="20dp" android:visibility="gone">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Сервер настроен" android:textColor="@color/text_primary" android:textSize="21sp" android:textStyle="bold" />
+                <TextView android:id="@+id/readySummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="@color/text_secondary" android:textSize="14sp" android:lineSpacingExtra="5dp" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/installStatusContainer" android:tag="glass" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:background="@drawable/bg_glass_field" android:gravity="center_vertical" android:orientation="horizontal" android:padding="14dp" android:visibility="gone">
+                <ProgressBar android:id="@+id/installSpinner" style="?android:attr/progressBarStyleSmall" android:layout_width="26dp" android:layout_height="26dp" android:layout_marginEnd="12dp" android:indeterminate="true" android:visibility="gone" />
+                <TextView android:id="@+id/installStatus" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="@color/text_secondary" android:textSize="13sp" />
+            </LinearLayout>
+            <ProgressBar android:id="@+id/installProgress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="10dp" android:indeterminate="false" android:max="100" android:progress="0" android:visibility="gone" />
         </LinearLayout>
-        <ProgressBar android:id="@+id/installProgress" style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="10dp"
-            android:indeterminate="false" android:max="100" android:progress="0" android:visibility="gone" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/installButton"
-            android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="16dp"
-            android:text="Установить и добавить" android:textAllCaps="false" android:textColor="#FFFFFF"
-            android:backgroundTint="@color/colorPrimary" app:cornerRadius="20dp" />
-    </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.button.MaterialButton android:id="@+id/installButton" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginHorizontal="22dp" android:layout_marginTop="10dp" android:layout_marginBottom="18dp" android:text="Далее" android:textAllCaps="false" android:textColor="#FFFFFF" android:backgroundTint="@color/colorPrimary" app:cornerRadius="20dp" />
+</LinearLayout>

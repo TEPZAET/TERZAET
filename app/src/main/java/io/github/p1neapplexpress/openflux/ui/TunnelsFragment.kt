@@ -48,6 +48,9 @@ import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.data.TunnelState
+import io.github.p1neapplexpress.openflux.data.TunnelBundleParser
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import io.github.p1neapplexpress.openflux.ui.widget.AuroraView
 import io.github.p1neapplexpress.openflux.ui.widget.CropVideoView
@@ -113,8 +116,11 @@ class TunnelsFragment : BaseFragment() {
     private val qrScanner = registerForActivityResult(ScanQRCode()) { result ->
         val raw = (result as? QRResult.QRSuccess)?.content?.rawValue
             ?: return@registerForActivityResult
-        runCatching { Json.decodeFromString<Tunnel>(raw) }
-            .onSuccess { vm.addTunnel(it); vm.startTunnel(it) }
+        runCatching { TunnelBundleParser.parse(raw) }
+            .onSuccess {
+                vm.addTunnel(it)
+                Toast.makeText(requireContext(), "Конфигурация добавлена", Toast.LENGTH_SHORT).show()
+            }
             .onFailure {
                 Toast.makeText(requireContext(), R.string.qr_scan_failed, Toast.LENGTH_LONG).show()
             }
@@ -225,7 +231,10 @@ class TunnelsFragment : BaseFragment() {
 
         view.findViewById<View>(R.id.switchButton).setOnClickListener {
             animatePress(it)
-            openManualSetup()
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.main, AddConnectionFragment())
+                .addToBackStack("add_key")
+                .commit()
         }
         view.findViewById<View>(R.id.settingsIcon).setOnClickListener {
             animatePress(it)
@@ -280,6 +289,75 @@ class TunnelsFragment : BaseFragment() {
     private fun requestVpnAndStart() {
         val intent = VpnService.prepare(requireActivity())
         if (intent != null) vpnPermission.launch(intent) else vm.startCurrent()
+    }
+
+    private fun showKeyImportDialog() {
+        val context = requireContext()
+        val panel = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((20 * resources.displayMetrics.density).toInt(), 0, (20 * resources.displayMetrics.density).toInt(), 0)
+        }
+        panel.addView(TextView(context).apply {
+            text = "Вставьте целиком ключ terzaet:// или старую конфигурацию JSON. Ключ можно скопировать из окна управления пользователями."
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+            setPadding(0, 0, 0, (12 * resources.displayMetrics.density).toInt())
+        })
+        val field = TextInputEditText(context).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            minLines = 3
+            maxLines = 6
+            setTextIsSelectable(true)
+        }
+        val input = TextInputLayout(context).apply {
+            hint = "Ключ TERZAET"
+            setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE)
+            addView(field)
+        }
+        panel.addView(input)
+        panel.addView(MaterialButton(context).apply {
+            text = "Вставить из буфера"
+            isAllCaps = false
+            setIconResource(R.drawable.ic_key)
+            iconPadding = (8 * resources.displayMetrics.density).toInt()
+            setOnClickListener {
+                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                val copied = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)
+                if (copied.isNullOrBlank()) input.error = "В буфере обмена нет текста"
+                else {
+                    field.setText(copied)
+                    input.error = null
+                }
+            }
+        }, LinearLayout.LayoutParams(-1, (50 * resources.displayMetrics.density).toInt()).apply {
+            topMargin = (8 * resources.displayMetrics.density).toInt()
+        })
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle("Импортировать ключ")
+            .setView(panel)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton("Добавить", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val raw = field.text?.toString().orEmpty()
+                runCatching { TunnelBundleParser.parse(raw) }
+                    .onSuccess { tunnel ->
+                        vm.addTunnel(tunnel)
+                        vm.startTunnel(tunnel)
+                        dialog.dismiss()
+                    }
+                    .onFailure {
+                        input.error = "Ключ не распознан. Проверьте, что вставлена вся строка целиком."
+                    }
+            }
+        }
+        dialog.show()
+    }
+
+    fun startTunnelFromWizard(tunnel: Tunnel) {
+        vm.selectTunnel(tunnel)
+        requestVpnAndStart()
     }
 
     private fun observe() {
@@ -346,6 +424,7 @@ class TunnelsFragment : BaseFragment() {
             val row = layoutInflater.inflate(R.layout.item_server_manage, content, false)
             val isActive = vm.active.value.isActive && vm.active.value.tunnel?.id == tunnel.id
             row.findViewById<TextView>(R.id.serverName).text = tunnel.name
+            row.findViewById<View>(R.id.serverUsers).visibility = View.GONE
             val updateAvailable = ServerRelease.updateAvailable(tunnel)
             row.findViewById<View>(R.id.serverDot).backgroundTintList = if (updateAvailable) {
                 ColorStateList.valueOf(android.graphics.Color.parseColor("#E5B642"))

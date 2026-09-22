@@ -6,7 +6,7 @@
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Мои серверы" android:textColor="@color/text_primary" android:textSize="29sp" android:textStyle="bold" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Управляйте своими VDS и протоколами" android:textColor="@color/text_secondary" android:textSize="13sp" />
             </LinearLayout>
-            <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:background="@drawable/admin_icon_bg" android:src="@drawable/ic_admin_server" app:tint="#277C59" />
+            <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:background="@drawable/admin_icon_bg" android:src="@drawable/ic_admin_server" app:tint="@color/colorPrimary" />
         </LinearLayout>
         <LinearLayout android:id="@+id/serverList" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:orientation="vertical" />
         <com.google.android.material.button.MaterialButton android:id="@+id/serverAdd" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="14dp" android:text="Добавить сервер" android:textAllCaps="false" android:textColor="#FFFFFF" android:backgroundTint="@color/colorPrimary" app:cornerRadius="20dp" app:icon="@drawable/ic_admin_server" app:iconTint="#FFFFFF" app:iconPadding="9dp" />

@@ -75,7 +75,7 @@ func (s *Store) saveLocked() error {
 	return os.Rename(tmp, s.path)
 }
 
-func (s *Store) List() []User { s.mu.RLock(); defer s.mu.RUnlock(); return append([]User(nil), s.users...) }
+func (s *Store) List() []User { s.mu.RLock(); defer s.mu.RUnlock(); return append([]User{}, s.users...) }
 
 func (s *Store) Create(alias string, trafficCap, timeCap int64, profiles []Profile) (User, error) {
 	s.mu.Lock(); defer s.mu.Unlock()

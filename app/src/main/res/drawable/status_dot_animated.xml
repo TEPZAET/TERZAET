@@ -4,7 +4,7 @@
         android:id="@+id/state_running"
         android:state_selected="true">
         <shape android:shape="oval">
-            <solid android:color="#00ff88" />
+            <solid android:color="#555A61" />
             <size
                 android:width="8dp"
                 android:height="8dp" />
@@ -13,7 +13,7 @@
     <item
         android:id="@+id/state_connecting">
         <shape android:shape="oval">
-            <solid android:color="#ffaa00" />
+            <solid android:color="#85898E" />
             <size
                 android:width="8dp"
                 android:height="8dp" />
@@ -22,7 +22,7 @@
     <item
         android:id="@+id/state_error">
         <shape android:shape="oval">
-            <solid android:color="#ff4444" />
+            <solid android:color="#666B72" />
             <size
                 android:width="8dp"
                 android:height="8dp" />
@@ -42,7 +42,7 @@
         <animation-list>
             <item android:duration="300">
                 <shape android:shape="oval">
-                    <solid android:color="#ffaa00" />
+                    <solid android:color="#85898E" />
                 </shape>
             </item>
         </animation-list>
@@ -53,7 +53,7 @@
         <animation-list>
             <item android:duration="300">
                 <shape android:shape="oval">
-                    <solid android:color="#00ff88" />
+                    <solid android:color="#555A61" />
                 </shape>
             </item>
         </animation-list>

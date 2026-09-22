@@ -10,16 +10,10 @@ import android.widget.TextView
 import android.widget.ImageView
 import android.view.animation.DecelerateInterpolator
 import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.github.p1neapplexpress.openflux.R
-import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.event.AppEvent
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.io.File
-import com.jcraft.jsch.JSch
 
 class ServerDetailsFragment : BaseFragment() {
     companion object {
@@ -36,12 +30,11 @@ class ServerDetailsFragment : BaseFragment() {
     override fun onViewCreated(view: View, state: Bundle?) {
         view.findViewById<TextView>(R.id.detailName).text = tunnel.name
         view.findViewById<TextView>(R.id.detailAddress).text = "${tunnel.adminHost} · SSH ${tunnel.adminPort ?: 22}"
-        action(view, R.id.detailProtocols, R.drawable.ic_admin_protocols, "Протоколы", "ЯDoc и Hysteria 2") { showProtocols() }
+        action(view, R.id.detailProtocols, R.drawable.ic_admin_protocols, "Установленные протоколы", "Состав и состояние на VDS") { showProtocols() }
         action(view, R.id.detailUsers, R.drawable.ic_admin_users, "Пользователи и ключи", "Доступ, лимиты и QR-коды") { open(UserManagementFragment.new(tunnel)) }
         action(view, R.id.detailConnection, R.drawable.ic_admin_edit, "Подключение VDS", "Адрес, порт и пользователь") {
             editConnection()
         }
-        view.findViewById<View>(R.id.detailDanger).setOnClickListener { confirmRemove() }
         val content = view.findViewById<LinearLayout>(R.id.detailContent)
         for (index in 0 until content.childCount) {
             val child = content.getChildAt(index)
@@ -61,32 +54,7 @@ class ServerDetailsFragment : BaseFragment() {
     }
 
     private fun showProtocols() {
-        val yandex = tunnel.transportConnPayload.isNotEmpty()
-        val hy2 = !tunnel.hysteriaUri.isNullOrBlank()
-        val text = buildString {
-            append("Яндекс Документы: ").append(if (yandex) "установлен" else "не установлен")
-            append("\nHysteria 2: ").append(if (hy2) "установлена" else "не установлена")
-            append("\n\nАктивный выбор: ").append(if (ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.hysteria2) "Hy2" else "ЯDoc")
-        }
-        MaterialAlertDialogBuilder(requireContext()).setTitle("Протоколы").setMessage(text)
-            .setNegativeButton("ЯDoc") { _, _ -> if (yandex) vm.setConnectionMode(tunnel, ConnectionMode.yandex) }
-            .setNeutralButton("Hy2") { _, _ -> if (hy2) vm.setConnectionMode(tunnel, ConnectionMode.hysteria2) }
-            .setPositiveButton("Готово", null).show()
-    }
-
-    private fun confirmRemove() {
-        val password = EditText(requireContext()).apply { hint = "Пароль VDS"; inputType = 0x81 }
-        MaterialAlertDialogBuilder(requireContext()).setTitle("Удалить TERZAET с VDS?")
-            .setMessage("Будут удалены только TERZAET, его контейнеры и служба управления. Amnezia и другие VPN не затрагиваются.")
-            .setView(password).setNegativeButton(R.string.cancel, null).setPositiveButton("Удалить") { _, _ ->
-                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-                    runCatching { removeFromVds(password.text.toString()) }.onSuccess {
-                        requireActivity().runOnUiThread { vm.removeTunnel(tunnel); requireActivity().supportFragmentManager.popBackStack() }
-                    }.onFailure { error ->
-                        requireActivity().runOnUiThread { MaterialAlertDialogBuilder(requireContext()).setTitle("Удаление не выполнено").setMessage(error.message).setPositiveButton("Понятно", null).show() }
-                    }
-                }
-            }.show()
+        open(InstalledProtocolsFragment.new(tunnel))
     }
 
     private fun editConnection() {
@@ -103,17 +71,6 @@ class ServerDetailsFragment : BaseFragment() {
                     MaterialAlertDialogBuilder(requireContext()).setTitle("Проверьте данные").setMessage("Укажите название, адрес, пользователя и корректный SSH-порт.").setPositiveButton("Понятно", null).show()
                 } else vm.updateTunnel(tunnel, updated)
             }.show()
-    }
-
-    private fun removeFromVds(password: String) {
-        require(password.isNotBlank()) { "Введите пароль VDS" }
-        val known = File(requireContext().filesDir, "ssh_known_hosts").apply { if (!exists()) createNewFile() }
-        val session = JSch().apply { setKnownHosts(known.absolutePath) }.getSession(tunnel.adminUser ?: "root", tunnel.adminHost, tunnel.adminPort ?: 22)
-        session.setPassword(password); session.setConfig("StrictHostKeyChecking", "ask"); session.connect(15_000)
-        val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
-        channel.setCommand("docker rm -f terzaet-yandex terzaet-hysteria terzaet-control >/dev/null 2>&1 || true; systemctl disable --now terzaet-hysteria.service >/dev/null 2>&1 || true; rm -rf /opt/terzaet /opt/terzaet-hysteria")
-        channel.connect(15_000); while (!channel.isClosed) Thread.sleep(50)
-        val code = channel.exitStatus; channel.disconnect(); session.disconnect(); if (code != 0) error("VDS вернул код $code")
     }
 
     private fun open(fragment: BaseFragment) = requireActivity().supportFragmentManager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_detail").commit()

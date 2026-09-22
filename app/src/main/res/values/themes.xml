@@ -9,6 +9,7 @@
         <item name="colorSurface">@color/colorSurface</item>
         <item name="colorOnSurface">@color/colorOnSurface</item>
         <item name="materialButtonStyle">@style/Widget.TERZAET.Button</item>
+        <item name="textInputStyle">@style/GlassTextInput</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowBackground">@color/bg_deep</item>
         <item name="android:statusBarColor" tools:targetApi="l">@android:color/transparent</item>

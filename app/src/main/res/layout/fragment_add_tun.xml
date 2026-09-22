@@ -152,11 +152,11 @@
         <com.google.android.material.button.MaterialButton android:id="@+id/updateVdsButton"
             android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
             android:text="Обновить документ на VDS" android:textAllCaps="false" android:textColor="#2E7552"
-            android:backgroundTint="#DDF2E6" android:visibility="gone" app:cornerRadius="20dp" />
+            android:backgroundTint="#DDE0E3" android:visibility="gone" app:cornerRadius="20dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/installHysteriaButton"
             android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
             android:text="Установить Hysteria 2" android:textAllCaps="false" android:textColor="#2E7552"
-            android:backgroundTint="#DDF2E6" android:visibility="gone" app:cornerRadius="20dp" />
+            android:backgroundTint="#DDE0E3" android:visibility="gone" app:cornerRadius="20dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/removeFromVdsButton"
             android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="10dp"
             android:text="Удалить TERZAET с VDS" android:textAllCaps="false" android:textColor="@color/state_error"

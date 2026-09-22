@@ -15,7 +15,7 @@ class VpnServiceController(private val service: VpnService) {
 
     companion object {
         private const val TAG = "VpnServiceController"
-        private const val MTU = 1500
+        private const val MTU = 1280
         private const val VPN_IPV4_ADDR = "26.26.26.1"
         private const val VPN_IPV4_PREFIX = 24
         private const val VPN_IPV6_ADDR = "fdfe:dcba:9876::1"

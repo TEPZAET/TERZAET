@@ -45,7 +45,7 @@ class ServersFragment : BaseFragment() {
         list.removeAllViews()
         if (items.isEmpty()) {
             val empty = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = android.view.Gravity.CENTER; setPadding(dp(24), dp(24), dp(24), dp(24)); setBackgroundResource(R.drawable.glass_panel) }
-            empty.addView(ImageView(requireContext()).apply { setImageResource(R.drawable.ic_admin_server); imageTintList = ColorStateList.valueOf(android.graphics.Color.parseColor("#32865D")); setPadding(dp(14), dp(14), dp(14), dp(14)); background = requireContext().getDrawable(R.drawable.admin_icon_bg) }, LinearLayout.LayoutParams(dp(56), dp(56)))
+            empty.addView(ImageView(requireContext()).apply { setImageResource(R.drawable.ic_admin_server); imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorPrimary, context.theme)); setPadding(dp(14), dp(14), dp(14), dp(14)); background = requireContext().getDrawable(R.drawable.admin_icon_bg) }, LinearLayout.LayoutParams(dp(56), dp(56)))
             empty.addView(TextView(requireContext()).apply { text = "Здесь появятся ваши VDS"; textSize = 16f; setTypeface(typeface, android.graphics.Typeface.BOLD); gravity = android.view.Gravity.CENTER; setTextColor(resources.getColor(R.color.text_primary, context.theme)); setPadding(0, dp(14), 0, dp(4)) })
             empty.addView(TextView(requireContext()).apply { text = "Добавьте сервер, чтобы установить TERZAET и управлять подключениями."; textSize = 13f; gravity = android.view.Gravity.CENTER; setTextColor(resources.getColor(R.color.text_secondary, context.theme)) })
             list.addView(empty)
@@ -62,24 +62,7 @@ class ServersFragment : BaseFragment() {
             row.findViewById<TextView>(R.id.serverType).text = if (updateAvailable) {
                 "Доступно обновление сервера"
             } else TransportType.from(tunnel.transportType).name
-            val selectedMode = ConnectionMode.from(tunnel.connectionMode)
-            val yandex = row.findViewById<MaterialButton>(R.id.serverYandex)
-            val hysteria = row.findViewById<MaterialButton>(R.id.serverHysteria)
-            setModeStyle(yandex, selectedMode == ConnectionMode.yandex || (selectedMode == ConnectionMode.auto && tunnel.hysteriaUri.isNullOrBlank()), "ЯDoc")
-            setModeStyle(hysteria, selectedMode != ConnectionMode.yandex && !tunnel.hysteriaUri.isNullOrBlank(), "Hy2")
-            hysteria.alpha = if (tunnel.hysteriaUri.isNullOrBlank()) 0.45f else 1f
-            yandex.setOnClickListener { vm.setConnectionMode(tunnel, ConnectionMode.yandex) }
-            hysteria.setOnClickListener {
-                if (tunnel.hysteriaUri.isNullOrBlank()) {
-                    MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("Hysteria 2 ещё не настроена")
-                        .setMessage("Откройте изменение сервера и добавьте ссылку Hysteria 2. Яндекс Документ продолжит работать как основной транспорт.")
-                        .setPositiveButton("Понятно", null)
-                        .show()
-                } else {
-                    vm.setConnectionMode(tunnel, ConnectionMode.hysteria2)
-                }
-            }
+            (row.findViewById<View>(R.id.serverYandex).parent as View).visibility = View.GONE
             row.setOnClickListener { open(ServerDetailsFragment.new(tunnel)) }
             row.findViewById<ImageButton>(R.id.serverEdit).apply {
                 visibility = View.GONE
@@ -90,13 +73,6 @@ class ServersFragment : BaseFragment() {
             row.findViewById<MaterialButton>(R.id.serverUsers).visibility = View.GONE
             list.addView(row)
         }
-    }
-
-    private fun setModeStyle(button: MaterialButton, selected: Boolean, label: String) {
-        button.text = if (selected) "✓  $label" else label
-        button.alpha = 1f
-        button.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#32865D" else "#E6FFFFFF"))
-        button.setTextColor(android.graphics.Color.parseColor(if (selected) "#FFFFFF" else "#4C5358"))
     }
 
     private fun open(fragment: BaseFragment) {

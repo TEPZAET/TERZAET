@@ -110,6 +110,7 @@ class SocksVpnService : android.net.VpnService() {
                     password = i.getStringExtra(Constants.INTENT_PASSWORD),
                     ipv6 = i.getBooleanExtra(Constants.INTENT_IPV6_PROXY, false),
                     udpgw = i.getStringExtra(Constants.INTENT_UDP_GW),
+                    enableSocksUdpRelay = activeBackend == Backend.HYSTERIA,
                 )
 
                 if (ok) {

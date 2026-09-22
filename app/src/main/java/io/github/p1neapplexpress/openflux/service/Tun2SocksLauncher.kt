@@ -17,7 +17,7 @@ class Tun2SocksLauncher(private val context: Context) {
         private const val NETIF_IPADDR = "26.26.26.2"
         private const val NETIF_NETMASK = "255.255.255.0"
         private const val NETIF_IP6ADDR = "fdfe:dcba:9876::2"
-        private const val TUN_MTU = 1500
+        private const val TUN_MTU = 1280
         private const val LOG_LEVEL = "3"
 
         // VPN interface address (VpnServiceController). tun2socks re-injects DNS
@@ -34,6 +34,7 @@ class Tun2SocksLauncher(private val context: Context) {
         password: String?,
         ipv6: Boolean,
         udpgw: String?,
+        enableSocksUdpRelay: Boolean,
     ): Boolean {
         if (fd <= 0) {
             Logx.e(TAG, "invalid tun fd: $fd")
@@ -64,7 +65,7 @@ class Tun2SocksLauncher(private val context: Context) {
 
         Logx.i(TAG, "starting tun2socks")
         ProcessRunner.execFireAndForget(
-            command = buildCommand(tun2socksBin, fd, socksPort, dnsPort, username, password, ipv6, udpgw, sockPath),
+            command = buildCommand(tun2socksBin, fd, socksPort, dnsPort, username, password, ipv6, udpgw, enableSocksUdpRelay, sockPath),
             workingDir = context.filesDir.absolutePath,
         )
         Thread.sleep(500L)
@@ -106,6 +107,7 @@ class Tun2SocksLauncher(private val context: Context) {
         passwd: String?,
         ipv6: Boolean,
         udpgw: String?,
+        enableSocksUdpRelay: Boolean,
         sockPath: File,
     ): List<String> = buildList {
         add(bin)
@@ -123,7 +125,8 @@ class Tun2SocksLauncher(private val context: Context) {
         }
         if (ipv6) { add("--netif-ip6addr"); add(NETIF_IP6ADDR) }
         add("--dnsgw"); add("$DNS_GW_IP:$dnsPort")
-        udpgw?.let { add("--udpgw-remote-server-addr"); add(it) }
+        if (enableSocksUdpRelay) add("--enable-udprelay")
+        else udpgw?.let { add("--udpgw-remote-server-addr"); add(it) }
     }
 
     private fun makePdnsdConf(listenPort: Int, upstreamPort: Int) {

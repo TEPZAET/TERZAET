@@ -15,6 +15,14 @@ class MainFragment : BaseFragment() {
     private lateinit var pager: ViewPager2
     private lateinit var navItems: List<View>
 
+    fun testConnection(tunnel: io.github.p1neapplexpress.openflux.data.Tunnel) {
+        if (!::pager.isInitialized) return
+        pager.setCurrentItem(0, false)
+        pager.post {
+            childFragmentManager.fragments.filterIsInstance<TunnelsFragment>().firstOrNull()?.startTunnelFromWizard(tunnel)
+        }
+    }
+
     override fun onNewEvent(ev: AppEvent) = Unit
 
     override fun onCreateView(

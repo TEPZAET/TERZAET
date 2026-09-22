@@ -40,6 +40,7 @@ class HysteriaSupervisor(
     )
     private var process: Process? = null
     private var lastOutput: String? = null
+    private var udpRelay: HysteriaUdpRelay? = null
 
     @Volatile
     var socksPort: Int = 0
@@ -92,6 +93,8 @@ class HysteriaSupervisor(
         stopping.set(true)
         ready.set(false)
         running.set(false)
+        udpRelay?.close()
+        udpRelay = null
         controller.stop()
         process?.let { process ->
             if (process.isAlive) {
@@ -138,7 +141,15 @@ class HysteriaSupervisor(
         val deadline = System.currentTimeMillis() + READY_TIMEOUT_MS
         while (!stopping.get() && generation.get() == startGeneration && process.isAlive) {
             if (Loopback.canConnect(socksPort, 200)) {
+                val relay = HysteriaUdpRelay(socksPort)
+                if (!relay.start()) {
+                    fail("Hysteria 2 запустила TCP SOCKS, но UDP ASSOCIATE не работает")
+                    process.destroyForcibly()
+                    return
+                }
+                udpRelay = relay
                 ready.set(true)
+                EventBus.dispatch(AppEvent.LogMessage("Hy2: SOCKS5 TCP и UDP готовы"))
                 EventBus.dispatch(AppEvent.TransportConnected)
                 break
             }
@@ -174,6 +185,8 @@ class HysteriaSupervisor(
         error = message
         ready.set(false)
         running.set(false)
+        udpRelay?.close()
+        udpRelay = null
         controller.stop()
         if (!stopping.get()) handler.post { onUnexpectedExit(message) }
     }
@@ -187,6 +200,7 @@ class HysteriaSupervisor(
         server: ${yaml(uri)}
         socks5:
           listen: "127.0.0.1:$port"
+          disableUDP: false
         quic:
           keepAlivePeriod: 10s
           sockopts:

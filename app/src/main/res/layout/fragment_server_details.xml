@@ -3,8 +3,8 @@
     <LinearLayout android:id="@+id/detailContent" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="22dp" android:paddingTop="42dp" android:paddingBottom="30dp">
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="22dp" android:background="@drawable/glass_panel">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:background="@drawable/admin_icon_bg" android:src="@drawable/ic_admin_server" app:tint="#277C59" />
-                <TextView android:id="@+id/detailStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="СЕРВЕР ПОДКЛЮЧЁН" android:textColor="#31835E" android:textSize="11sp" android:letterSpacing="0.08" />
+                <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:background="@drawable/admin_icon_bg" android:src="@drawable/ic_admin_server" app:tint="@color/colorPrimary" />
+                <TextView android:id="@+id/detailStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="СЕРВЕР ДОБАВЛЕН" android:textColor="@color/text_secondary" android:textSize="11sp" android:letterSpacing="0.08" />
             </LinearLayout>
             <TextView android:id="@+id/detailName" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" />
             <TextView android:id="@+id/detailAddress" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="@color/text_secondary" android:textSize="14sp" />
@@ -13,7 +13,5 @@
         <include layout="@layout/item_admin_action" android:id="@+id/detailProtocols" />
         <include layout="@layout/item_admin_action" android:id="@+id/detailUsers" android:layout_marginTop="10dp" />
         <include layout="@layout/item_admin_action" android:id="@+id/detailConnection" android:layout_marginTop="10dp" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="30dp" android:layout_marginBottom="10dp" android:text="ОПАСНАЯ ЗОНА" android:textColor="@color/state_error" android:textSize="11sp" android:letterSpacing="0.1" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/detailDanger" android:layout_width="match_parent" android:layout_height="56dp" android:text="Удалить TERZAET с VDS" android:textAllCaps="false" android:textColor="@color/state_error" app:cornerRadius="20dp" app:strokeColor="#A45B5B" app:strokeWidth="1dp" android:backgroundTint="#08A45B5B" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

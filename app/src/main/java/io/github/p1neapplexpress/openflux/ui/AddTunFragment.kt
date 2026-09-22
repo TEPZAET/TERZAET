@@ -26,6 +26,7 @@ import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelPayload
 import io.github.p1neapplexpress.openflux.data.ServerRelease
+import io.github.p1neapplexpress.openflux.data.SavedAdminPassword
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
@@ -80,13 +81,17 @@ class AddTunFragment : BaseFragment() {
             key.text = tunnel.encryptionKey.orEmpty()
             encryptionSwitch.isChecked = !tunnel.encryptionKey.isNullOrBlank()
             save.text = "Сохранить локально"
-            adminContainer.isVisible = true
+            val hasYandex = tunnel.transportConnPayload.isNotEmpty()
+            (url.parent?.parent as? View)?.isVisible = hasYandex
+            encryptionSwitch.isVisible = hasYandex
+            keyContainer.isVisible = hasYandex && encryptionSwitch.isChecked
+            adminContainer.isVisible = !tunnel.adminHost.isNullOrBlank()
             adminHost.setText(tunnel.adminHost.orEmpty())
-            adminUser.setText(tunnel.adminUser ?: "root")
+            adminUser.setText(tunnel.adminUser.orEmpty())
             adminPort.setText((tunnel.adminPort ?: 22).toString())
-            removeFromVds.isVisible = true
-            updateVds.isVisible = true
-            installHysteria.isVisible = true
+            removeFromVds.isVisible = false
+            updateVds.isVisible = false
+            installHysteria.isVisible = !tunnel.adminHost.isNullOrBlank() && tunnel.hysteriaUri.isNullOrBlank()
         }
         keyContainer.isVisible = encryptionSwitch.isChecked
         encryptionSwitch.setOnCheckedChangeListener { _, enabled ->
@@ -98,8 +103,8 @@ class AddTunFragment : BaseFragment() {
             val documentUrl = url.text.toString().trim()
             val rawKey = key.text.toString().trim()
             val rawHysteriaUri = hysteriaUri.text.toString().trim()
-            if (tunnelName.isBlank() || !documentUrl.startsWith("https://")) {
-                Toast.makeText(requireContext(), "Введите имя и корректный URL документа", Toast.LENGTH_SHORT).show()
+            if (tunnelName.isBlank() || (!documentUrl.startsWith("https://") && rawHysteriaUri.isBlank())) {
+                Toast.makeText(requireContext(), "Введите имя и хотя бы один протокол подключения", Toast.LENGTH_SHORT).show()
                 return null
             }
             if (encryptionSwitch.isChecked && !EncryptionKey.isValid(rawKey)) {
@@ -113,17 +118,18 @@ class AddTunFragment : BaseFragment() {
             val transport = editing?.let { TransportType.from(it.transportType) }
                 ?.takeIf { it == TransportType.yandex || it == TransportType.vyandex }
                 ?: TransportType.yandex
-            val payload = TunnelPayload.build(TunnelPayload.Form(transport = transport, url = documentUrl))
-                ?: return null
+            val payload = if (documentUrl.startsWith("https://")) {
+                TunnelPayload.build(TunnelPayload.Form(transport = transport, url = documentUrl)) ?: return null
+            } else editing?.transportConnPayload ?: emptyList()
             return Tunnel(
                 id = editing?.id ?: Random(System.currentTimeMillis()).nextLong(),
                 name = tunnelName,
                 transportType = transport.name,
                 transportConnPayload = payload,
                 encryptionKey = rawKey.takeIf { encryptionSwitch.isChecked }?.let(EncryptionKey::normalize),
-                adminHost = adminHost.text.toString().trim().takeIf { editing != null && it.isNotBlank() },
-                adminUser = adminUser.text.toString().trim().takeIf { editing != null && it.isNotBlank() },
-                adminPort = adminPort.text.toString().toIntOrNull()?.takeIf { editing != null && it in 1..65535 },
+                adminHost = editing?.adminHost,
+                adminUser = editing?.adminUser,
+                adminPort = editing?.adminPort,
                 serverRevision = editing?.serverRevision ?: 0,
                 hysteriaUri = rawHysteriaUri.takeIf { it.isNotEmpty() },
                 connectionMode = editing?.connectionMode ?: ConnectionMode.auto.name,
@@ -175,8 +181,9 @@ class AddTunFragment : BaseFragment() {
 
     private fun requestHysteriaInstall(original: Tunnel, candidate: Tunnel, host: String, user: String, port: Int) {
         val content = layoutInflater.inflate(R.layout.dialog_ssh_password, null)
-        content.findViewById<TextView>(R.id.passwordHint).text = "Введите пароль для установки Hysteria 2. Пароль не сохраняется. Для подключения потребуется открытый UDP-порт 443."
+        content.findViewById<TextView>(R.id.passwordHint).text = "Пароль SSH хранится на этом телефоне в зашифрованном виде после успешного подключения и не показывается приложением. Для Hysteria 2 потребуется открытый UDP-порт 443."
         val password = content.findViewById<EditText>(R.id.sshPassword)
+        SavedAdminPassword.read(requireContext(), host, user, port)?.let(password::setText)
         val progress = content.findViewById<View>(R.id.removalProgress)
         val progressText = content.findViewById<TextView>(R.id.removalStatus)
         val dialog = MaterialAlertDialogBuilder(requireContext())
@@ -202,6 +209,7 @@ class AddTunFragment : BaseFragment() {
                     val result = withContext(Dispatchers.IO) { installHysteriaOnVds(host, user, port, value) }
                     password.text.clear()
                     result.onSuccess { uri ->
+                        SavedAdminPassword.save(requireContext(), host, user, port, value)
                         val updated = candidate.copy(
                             hysteriaUri = uri,
                             connectionMode = ConnectionMode.auto.name,
@@ -237,8 +245,9 @@ class AddTunFragment : BaseFragment() {
 
     private fun requestVdsUpdate(original: Tunnel, candidate: Tunnel, host: String, user: String, port: Int) {
         val content = layoutInflater.inflate(R.layout.dialog_ssh_password, null)
-        content.findViewById<TextView>(R.id.passwordHint).text = "Введите пароль для обновления сервера. Пароль не сохраняется."
+        content.findViewById<TextView>(R.id.passwordHint).text = "Пароль SSH сохраняется на этом телефоне только в зашифрованном виде после успешного подключения."
         val password = content.findViewById<EditText>(R.id.sshPassword)
+        SavedAdminPassword.read(requireContext(), host, user, port)?.let(password::setText)
         val progress = content.findViewById<View>(R.id.removalProgress)
         val progressText = content.findViewById<TextView>(R.id.removalStatus)
         val dialog = MaterialAlertDialogBuilder(requireContext())
@@ -264,6 +273,7 @@ class AddTunFragment : BaseFragment() {
                     val result = withContext(Dispatchers.IO) { updateOnVds(candidate, host, user, port, value) }
                     password.text.clear()
                     result.onSuccess {
+                        SavedAdminPassword.save(requireContext(), host, user, port, value)
                         val updated = candidate.copy(serverRevision = ServerRelease.REVISION)
                         vm.updateTunnel(original, updated)
                         editing = updated
@@ -342,8 +352,9 @@ class AddTunFragment : BaseFragment() {
 
     private fun requestVdsRemoval(host: String, user: String, port: Int) {
         val content = layoutInflater.inflate(R.layout.dialog_ssh_password, null)
-        content.findViewById<TextView>(R.id.passwordHint).text = "Введите пароль для $user@$host. Он используется один раз и не сохраняется."
+        content.findViewById<TextView>(R.id.passwordHint).text = "Пароль SSH хранится на этом телефоне в зашифрованном виде и не отображается приложением."
         val password = content.findViewById<EditText>(R.id.sshPassword)
+        SavedAdminPassword.read(requireContext(), host, user, port)?.let(password::setText)
         val progress = content.findViewById<View>(R.id.removalProgress)
         val progressText = content.findViewById<TextView>(R.id.removalStatus)
         val dialog = MaterialAlertDialogBuilder(requireContext())
@@ -368,6 +379,7 @@ class AddTunFragment : BaseFragment() {
                     val result = withContext(Dispatchers.IO) { removeFromVds(host, user, port, value) }
                     password.text.clear()
                     result.onSuccess {
+                        SavedAdminPassword.forget(requireContext(), host, user, port)
                         dialog.dismiss()
                         Toast.makeText(requireContext(), "TERZAET удалён с VDS", Toast.LENGTH_LONG).show()
                     }.onFailure {

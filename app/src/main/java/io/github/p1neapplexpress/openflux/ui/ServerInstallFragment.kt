@@ -38,6 +38,7 @@ import java.io.File
 import java.io.ByteArrayOutputStream
 import io.github.p1neapplexpress.openflux.data.EncryptionKey
 import io.github.p1neapplexpress.openflux.data.ConnectionMode
+import io.github.p1neapplexpress.openflux.data.SavedAdminPassword
 import kotlin.random.Random
 import java.security.SecureRandom
 import java.net.HttpURLConnection
@@ -208,6 +209,7 @@ class ServerInstallFragment : BaseFragment() {
             spinner.visibility = View.GONE
             button.isEnabled = true
             result.onSuccess { installed ->
+                SavedAdminPassword.save(requireContext(), request.host, request.user, request.port, request.password)
                 val transport = if (installed.transport == "vyandex") TransportType.vyandex else TransportType.yandex
                 val payload = if (request.installYandex) TunnelPayload.build(TunnelPayload.Form(transport = transport, url = request.document)) else emptyList()
                 if (request.installYandex && payload == null) {

@@ -17,10 +17,10 @@ object ManagedUserProfiles {
         }
         if (includeYandex) {
             val url = serverDocumentUrl?.trim()?.takeIf { it.startsWith("https://") }
-                ?: throw IllegalArgumentException("На сервере не найдена ссылка Яндекс Диска")
+                ?: throw IllegalArgumentException("На сервере не найдена ссылка документа")
             val form = TunnelPayload.parse(server.transportType, server.transportConnPayload).copy(url = url)
             val payload = TunnelPayload.build(form)
-                ?: throw IllegalArgumentException("Не удалось подготовить Яндекс-профиль")
+                ?: throw IllegalArgumentException("Не удалось подготовить профиль документа")
             val clientConfig = server.copy(
                 transportConnPayload = payload,
                 adminHost = null,
@@ -31,7 +31,8 @@ object ManagedUserProfiles {
                 connectionMode = ConnectionMode.yandex.name,
                 autoFallback = false,
             )
-            add(ManagedProfile("Яндекс Документы", Json.encodeToString(clientConfig)))
+            val name = if (form.transport == TransportType.mailru) "Mail Документы" else "Яндекс Документы"
+            add(ManagedProfile(name, Json.encodeToString(clientConfig)))
         }
     }
 }

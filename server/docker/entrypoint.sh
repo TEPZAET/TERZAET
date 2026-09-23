@@ -23,9 +23,9 @@ case "$role" in
 esac
 
 case "$transport" in
-  auto|yandex|vyandex|oneme) ;;
+  auto|yandex|vyandex|oneme|mailru) ;;
   *)
-    echo "TRANSPORT must be one of auto, yandex, vyandex, oneme (got '$transport')" >&2
+    echo "TRANSPORT must be one of auto, yandex, vyandex, oneme, mailru (got '$transport')" >&2
     exit 2
     ;;
 esac

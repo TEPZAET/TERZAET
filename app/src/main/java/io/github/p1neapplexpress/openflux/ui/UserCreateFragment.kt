@@ -24,6 +24,7 @@ import io.github.p1neapplexpress.openflux.data.ManagedUserRequest
 import io.github.p1neapplexpress.openflux.data.SavedAdminPassword
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelPayload
+import io.github.p1neapplexpress.openflux.data.TransportType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,7 +63,8 @@ class UserCreateFragment : BaseFragment() {
             form.addView(TextView(context).apply { text = "Выбери протоколы, которые войдут в пользовательский ключ"; textSize = 14f; setTextColor(resources.getColor(R.color.text_secondary, context.theme)); setPadding(0, dp(18), 0, dp(8)) })
             val current = tunnel
             val yandexUrlAvailable = current?.let { TunnelPayload.parse(it.transportType, it.transportConnPayload).url.isNotBlank() } == true
-            yandex = MaterialCheckBox(context).apply { text = "Яндекс Документы"; isChecked = yandexUrlAvailable; isEnabled = yandexUrlAvailable; setTextColor(resources.getColor(R.color.text_primary, context.theme)) }
+            val documentName = if (current?.transportType == TransportType.mailru.name) "Mail Документы" else "Яндекс Документы"
+            yandex = MaterialCheckBox(context).apply { text = documentName; isChecked = yandexUrlAvailable; isEnabled = yandexUrlAvailable; setTextColor(resources.getColor(R.color.text_primary, context.theme)) }
             hysteria = MaterialCheckBox(context).apply { text = "Hysteria 2"; isChecked = !current?.hysteriaUri.isNullOrBlank(); isEnabled = isChecked; setTextColor(resources.getColor(R.color.text_primary, context.theme)) }
             form.addView(yandex)
             form.addView(hysteria)
@@ -87,7 +89,7 @@ class UserCreateFragment : BaseFragment() {
         val name = alias.text?.toString()?.trim().orEmpty()
         if (name.isBlank()) { alias.error = "Укажи имя"; return }
         if (yandex.isChecked && TunnelPayload.parse(server.transportType, server.transportConnPayload).url.isBlank()) {
-            status.text = "В конфигурации сервера не найдена ссылка Яндекс Диска. Добавь её в настройках сервера."
+            status.text = "В конфигурации сервера не найдена ссылка документа. Добавь её в настройках сервера."
             return
         }
         val includeYandex = yandex.isChecked

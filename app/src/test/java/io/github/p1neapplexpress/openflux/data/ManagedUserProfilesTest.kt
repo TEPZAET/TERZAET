@@ -7,6 +7,27 @@ import org.junit.Test
 
 class ManagedUserProfilesTest {
     @Test
+    fun `mail user key retains mail transport and current public link`() {
+        val server = Tunnel(
+            id = 2L,
+            name = "Mail server",
+            transportType = TransportType.mailru.name,
+            transportConnPayload = TunnelPayload.build(TunnelPayload.Form(TransportType.mailru, "https://cloud.mail.ru/public/AbC/old"))!!,
+            adminHost = "10.0.0.2",
+            adminUser = "root",
+        )
+
+        val profiles = ManagedUserProfiles.build(server, true, false, "https://cloud.mail.ru/public/AbC/new")
+        val imported = Json.decodeFromString<Tunnel>(profiles.single().uri)
+
+        assertEquals("Mail Документы", profiles.single().name)
+        assertEquals(TransportType.mailru.name, imported.transportType)
+        assertEquals("https://cloud.mail.ru/public/AbC/new", TunnelPayload.parse(imported.transportType, imported.transportConnPayload).url)
+        assertNull(imported.adminHost)
+        assertNull(imported.adminUser)
+    }
+
+    @Test
     fun `user key gets current server URL but no admin access or hidden Hysteria`() {
         val server = Tunnel(
             id = 1L,

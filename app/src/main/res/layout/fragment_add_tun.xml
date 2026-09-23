@@ -26,7 +26,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Яндекс Документ — основной транспорт, Hysteria 2 — дополнительный"
+            android:text="Документ — основной транспорт, Hysteria 2 — дополнительный"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
@@ -75,7 +75,7 @@
                 android:layout_height="58dp"
                 android:layout_marginTop="6dp"
                 android:checked="true"
-                android:text="Автопереход на Яндекс при блокировке Hysteria"
+                android:text="Автопереход на документ при блокировке Hysteria"
                 android:textColor="@color/text_primary"
                 app:useMaterialThemeColors="true" />
 
@@ -84,7 +84,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:hint="URL документа Яндекса">
+                android:hint="Ссылка на документ">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/documentUrl"
                     style="@style/GlassEditText"

@@ -387,12 +387,13 @@ class TunnelsFragment : BaseFragment() {
 
     private fun renderBackend() {
         val tunnel = selectedTunnel
+        val documentLabel = if (tunnel?.transportType == "mailru") "Mail" else "Яндекс"
         val label = when {
-            isConnectionBusy() -> if (currentTransport == AppEvent.Transport.HYSTERIA2) "Hy2" else "Яндекс"
+            isConnectionBusy() -> if (currentTransport == AppEvent.Transport.HYSTERIA2) "Hy2" else documentLabel
             tunnel == null -> "Нет сервера"
             ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.hysteria2 -> "Hy2"
             ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.auto && !tunnel.hysteriaUri.isNullOrBlank() -> "Hy2"
-            else -> "Яндекс"
+            else -> documentLabel
         }
         backendBadge.text = label
     }
@@ -447,10 +448,11 @@ class TunnelsFragment : BaseFragment() {
             }
             var selectedMode = ConnectionMode.from(tunnel.connectionMode)
             val yandexAvailable = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url.isNotBlank()
+            val documentLabel = if (tunnel.transportType == "mailru") "Mail" else "Яндекс"
             val yandex = row.findViewById<MaterialButton>(R.id.serverYandex)
             val hysteria = row.findViewById<MaterialButton>(R.id.serverHysteria)
             fun renderTransportChoice() {
-                setTransportButton(yandex, selectedMode == ConnectionMode.yandex || (selectedMode == ConnectionMode.auto && tunnel.hysteriaUri.isNullOrBlank()), "Яндекс")
+                setTransportButton(yandex, selectedMode == ConnectionMode.yandex || (selectedMode == ConnectionMode.auto && tunnel.hysteriaUri.isNullOrBlank()), documentLabel)
                 setTransportButton(hysteria, selectedMode != ConnectionMode.yandex && !tunnel.hysteriaUri.isNullOrBlank(), "Hysteria 2")
             }
             renderTransportChoice()
@@ -464,7 +466,7 @@ class TunnelsFragment : BaseFragment() {
                 }
                 if (!yandexAvailable) {
                     renderTransportChoice()
-                    Toast.makeText(requireContext(), "В профиле нет ссылки Яндекс Диска", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "В профиле нет ссылки документа", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
                 vm.setConnectionMode(tunnel, ConnectionMode.yandex)

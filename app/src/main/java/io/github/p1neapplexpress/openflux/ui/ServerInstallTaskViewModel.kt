@@ -3,6 +3,7 @@ package io.github.p1neapplexpress.openflux.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.p1neapplexpress.openflux.data.Tunnel
+import io.github.p1neapplexpress.openflux.data.MailDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,15 +17,19 @@ internal data class InstallRequest(
     val password: String,
     val document: String,
     val encryptionKey: String,
-    val installYandex: Boolean,
+    val installMail: Boolean,
     val installHysteria: Boolean,
 ) {
     fun validConnection() = name.isNotBlank() && host.isNotBlank() && user.isNotBlank() && port in 1..65535 && password.isNotEmpty()
-    fun validDeployment() = validConnection() && (installYandex || installHysteria) && (!installYandex || document.startsWith("https://"))
+    fun validDeployment() = validConnection() && (installMail || installHysteria) && (!installMail || MailDocument.canonical(document) != null)
 }
 
 internal data class InstalledServer(val transport: String, val fingerprint: String, val hysteriaUri: String?) {
-    val transportLabel: String get() = if (transport == "vyandex") "новый Яндекс Документ" else "классический Яндекс Документ"
+    val transportLabel: String get() = when (transport) {
+        "mailru" -> "Mail Документы"
+        "vyandex" -> "новый Яндекс Документ"
+        else -> "классический Яндекс Документ"
+    }
 }
 
 internal sealed interface InstallTaskState {

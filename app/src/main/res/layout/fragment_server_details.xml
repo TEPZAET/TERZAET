@@ -11,7 +11,7 @@
         </LinearLayout>
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:layout_marginBottom="10dp" android:text="УПРАВЛЕНИЕ" android:textColor="@color/text_tertiary" android:textSize="11sp" android:letterSpacing="0.1" />
         <include layout="@layout/item_admin_action" android:id="@+id/detailProtocols" />
-        <include layout="@layout/item_admin_action" android:id="@+id/detailUsers" android:layout_marginTop="10dp" />
-        <include layout="@layout/item_admin_action" android:id="@+id/detailConnection" android:layout_marginTop="10dp" />
+        <include layout="@layout/item_admin_action" android:id="@+id/detailUsers" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" />
+        <include layout="@layout/item_admin_action" android:id="@+id/detailConnection" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

@@ -27,6 +27,7 @@ import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.TunnelPayload
 import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.data.SavedAdminPassword
+import io.github.p1neapplexpress.openflux.data.MailDocument
 import io.github.p1neapplexpress.openflux.event.AppEvent
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +91,7 @@ class AddTunFragment : BaseFragment() {
             adminUser.setText(tunnel.adminUser.orEmpty())
             adminPort.setText((tunnel.adminPort ?: 22).toString())
             removeFromVds.isVisible = false
-            updateVds.isVisible = false
+            updateVds.isVisible = !tunnel.adminHost.isNullOrBlank() && hasYandex
             installHysteria.isVisible = !tunnel.adminHost.isNullOrBlank() && tunnel.hysteriaUri.isNullOrBlank()
         }
         keyContainer.isVisible = encryptionSwitch.isChecked
@@ -115,11 +116,19 @@ class AddTunFragment : BaseFragment() {
                 Toast.makeText(requireContext(), "Ссылка Hysteria 2 должна начинаться с hysteria2://", Toast.LENGTH_SHORT).show()
                 return null
             }
-            val transport = editing?.let { TransportType.from(it.transportType) }
-                ?.takeIf { it == TransportType.yandex || it == TransportType.vyandex }
-                ?: TransportType.yandex
+            val mailUrl = MailDocument.canonical(documentUrl)
+            if (documentUrl.startsWith("https://cloud.mail.ru/") && mailUrl == null) {
+                Toast.makeText(requireContext(), "Нужна публичная ссылка Mail Документа", Toast.LENGTH_SHORT).show()
+                return null
+            }
+            val transport = when {
+                mailUrl != null -> TransportType.mailru
+                documentUrl.startsWith("https://disk.yandex.ru/") -> editing?.let { TransportType.from(it.transportType) }
+                    ?.takeIf { it == TransportType.yandex || it == TransportType.vyandex } ?: TransportType.yandex
+                else -> editing?.let { TransportType.from(it.transportType) } ?: TransportType.yandex
+            }
             val payload = if (documentUrl.startsWith("https://")) {
-                TunnelPayload.build(TunnelPayload.Form(transport = transport, url = documentUrl)) ?: return null
+                TunnelPayload.build(TunnelPayload.Form(transport = transport, url = mailUrl ?: documentUrl)) ?: return null
             } else editing?.transportConnPayload ?: emptyList()
             return Tunnel(
                 id = editing?.id ?: Random(System.currentTimeMillis()).nextLong(),
@@ -188,7 +197,7 @@ class AddTunFragment : BaseFragment() {
         val progressText = content.findViewById<TextView>(R.id.removalStatus)
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle("Установить Hysteria 2?")
-            .setMessage("TERZAET добавит отдельную службу Hysteria 2. Яндекс Документ и другие VPN-службы не будут изменены.")
+            .setMessage("TERZAET добавит отдельную службу Hysteria 2. Документ и другие VPN-службы не будут изменены.")
             .setView(content)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton("Установить", null)
@@ -293,14 +302,16 @@ class AddTunFragment : BaseFragment() {
     }
 
     private fun updateOnVds(tunnel: Tunnel, host: String, user: String, port: Int, password: String): Result<Unit> = runCatching {
-        val document = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url
+        val document = MailDocument.canonical(TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url)
+            ?: error("Нужна публичная ссылка Mail Документа")
         val encodedUrl = Base64.encodeToString(document.toByteArray(), Base64.NO_WRAP)
         val encodedKey = Base64.encodeToString(tunnel.encryptionKey.orEmpty().toByteArray(), Base64.NO_WRAP)
         val command = "export TERZAET_INSTALL_DIR=/opt/terzaet; " +
             "export TERZAET_DOC_URL=\$(printf %s '$encodedUrl' | base64 -d); " +
             "export TERZAET_ENCRYPTION_KEY=\$(printf %s '$encodedKey' | base64 -d); " +
             "rm -f /tmp/terzaet-install.sh; " +
-            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/main/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && " +
+            "export TERZAET_REF=feature/hysteria2-fallback; " +
+            "curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-terzaet.sh -o /tmp/terzaet-install.sh && " +
             "sh /tmp/terzaet-install.sh 2>&1"
         val jsch = JSch()
         val knownHosts = File(requireContext().filesDir, "ssh_known_hosts")

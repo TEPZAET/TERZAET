@@ -8,6 +8,7 @@ import androidx.fragment.app.activityViewModels
 import com.google.android.material.button.MaterialButton
 import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.Tunnel
+import io.github.p1neapplexpress.openflux.data.TransportType
 
 class InstalledProtocolsFragment : BaseFragment() {
     companion object {
@@ -29,7 +30,8 @@ class InstalledProtocolsFragment : BaseFragment() {
             if (t == null) {
                 addView(TextView(context).apply { text = "Сервер не найден"; gravity = Gravity.CENTER; setTextColor(resources.getColor(R.color.text_secondary, context.theme)) })
             } else {
-                protocolCard(page, "Яндекс Документы", t.transportConnPayload.isNotEmpty(), "Транспорт TCP")
+                val documentName = if (t.transportType == TransportType.mailru.name) "Mail Документы" else "Яндекс Документы"
+                protocolCard(page, documentName, t.transportConnPayload.isNotEmpty(), "Транспорт TCP")
                 protocolCard(page, "Hysteria 2", !t.hysteriaUri.isNullOrBlank(), "Транспорт UDP · подходит для звонков")
                 if (t.hysteriaUri.isNullOrBlank()) addView(MaterialButton(context).apply {
                     text = "Установить Hysteria 2"
@@ -37,7 +39,7 @@ class InstalledProtocolsFragment : BaseFragment() {
                     setOnClickListener { open(AddTunFragment.edit(t)) }
                 }, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(12) })
                 if (t.transportConnPayload.isEmpty()) addView(MaterialButton(context).apply {
-                    text = "Установить Яндекс Документы"
+                    text = "Установить Mail Документы"
                     isAllCaps = false
                     setOnClickListener { open(ServerInstallFragment.new()) }
                 }, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(8) })

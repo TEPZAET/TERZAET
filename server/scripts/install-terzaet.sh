@@ -10,7 +10,7 @@ image="terzaet-yandex:local"
 doc_url="${TERZAET_DOC_URL:-${1:-}}"
 encryption_key="${TERZAET_ENCRYPTION_KEY:-}"
 key_file="$install_dir/encryption-key"
-server_revision="2"
+server_revision="3"
 control_dir="$install_dir/control"
 
 fail() {
@@ -19,13 +19,21 @@ fail() {
 }
 
 [ "$(id -u)" -eq 0 ] || fail "run as root"
-[ -n "$doc_url" ] || fail "Yandex document URL is required"
+[ -n "$doc_url" ] || fail "Mail document URL is required"
 case "$doc_url" in
-    https://disk.yandex.*/*|https://yadi.sk/*) ;;
-    *) fail "unsupported Yandex document URL" ;;
+    https://cloud.mail.ru/public/*/*) ;;
+    *) fail "unsupported Mail document URL" ;;
 esac
+doc_link="${doc_url#https://cloud.mail.ru/public/}"
+printf '%s' "$doc_link" | grep -Eq '^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$' || fail "invalid Mail document link"
 [ -z "$encryption_key" ] || [ "${#encryption_key}" -ge 16 ] || fail "encryption key must contain at least 16 characters"
 printf 'PROGRESS=5|Проверка сервера\n'
+doc_request="$(printf '{"x-email":"anonym","public":"/%s","platform":"desktop_web"}' "$doc_link")"
+doc_response="$(curl -fsS --max-time 20 -X POST -H 'Content-Type: application/json' -H 'X-Api-Version: 4' -H "Referer: $doc_url" --data "$doc_request" https://cloud.mail.ru/api/v4/r7/edit)" || fail "Mail document editor is unreachable from this VDS"
+printf '%s' "$doc_response" | grep -q '"editorConfig"' || fail "Mail document editor did not return configuration"
+printf '%s' "$doc_response" | grep -q '"token"' || fail "Mail document editor did not return a token"
+printf '%s' "$doc_response" | grep -Eq '"edit"[[:space:]]*:[[:space:]]*true' || fail "Mail document link does not allow editing"
+unset doc_request doc_response
 
 install_docker() {
     if command -v docker >/dev/null 2>&1; then
@@ -56,11 +64,14 @@ printf 'PROGRESS=15|Docker готов\n'
 
 had_container=0
 old_doc_url=""
+old_transport="auto"
 if docker inspect "$container" >/dev/null 2>&1; then
     had_container=1
     old_image="$(docker inspect -f '{{.Image}}' "$container")"
     docker tag "$old_image" terzaet-yandex:rollback
     old_doc_url="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container" | sed -n 's/^URL=//p' | head -n 1)"
+    old_transport="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container" | sed -n 's/^TRANSPORT=//p' | head -n 1)"
+    [ -n "$old_transport" ] || old_transport="auto"
     if [ -f "$install_dir/document-url" ]; then
         old_doc_url="$(cat "$install_dir/document-url")"
     fi
@@ -113,7 +124,7 @@ restore_previous() {
         fi
         docker run -d --name "$container" --restart unless-stopped \
             --label app.terzaet.managed=true --cap-add NET_RAW --cap-add NET_ADMIN \
-            -e ROLE=exit-node -e TRANSPORT=auto -e EXIT_MODE=l4 -e URL="$old_doc_url" \
+            -e ROLE=exit-node -e TRANSPORT="$old_transport" -e EXIT_MODE=l4 -e URL="$old_doc_url" \
             $old_key_args \
             terzaet-yandex:rollback >/dev/null
     elif [ "$legacy_active" -eq 1 ]; then
@@ -151,7 +162,7 @@ if ! docker run -d \
     --cap-add NET_RAW \
     --cap-add NET_ADMIN \
     -e ROLE=exit-node \
-    -e TRANSPORT=auto \
+    -e TRANSPORT=mailru \
     -e EXIT_MODE=l4 \
     -e URL="$doc_url" \
     $key_args \
@@ -168,23 +179,16 @@ if ! docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -q t
     fail "container stopped during startup; previous service restored"
 fi
 
-detected=""
-attempt=0
-while [ -z "$detected" ] && [ "$attempt" -lt 15 ]; do
-    detected="$(docker logs "$container" 2>&1 | sed -n 's/.*Yandex document mode: \([^ ]*\).*/\1/p' | tail -n 1)"
-    [ -n "$detected" ] || sleep 2
-    attempt=$((attempt + 1))
-done
-[ -n "$detected" ] || {
+if ! docker logs "$container" 2>&1 | grep -q 'Running as EXIT NODE'; then
     docker logs "$container" >&2 || true
     restore_previous
-    fail "Yandex document editor could not be opened from this VDS; check sharing permissions or CAPTCHA"
-}
+    fail "Mail document transport did not start"
+fi
 if [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" != true ] ||
    [ "$(docker inspect -f '{{.RestartCount}}' "$container" 2>/dev/null)" != 0 ]; then
     docker logs "$container" >&2 || true
     restore_previous
-    fail "Yandex transport stopped or restarted during startup"
+    fail "Mail document transport stopped or restarted during startup"
 fi
 docker rm -f "$control_container" >/dev/null 2>&1 || true
 if ! docker run -d \
@@ -206,4 +210,4 @@ chmod 600 "$install_dir/document-url"
 printf '%s\n' "$server_revision" > "$install_dir/version"
 chmod 600 "$install_dir/version"
 printf 'PROGRESS=100|Сервер готов\n'
-printf 'OK\nCONTAINER=%s\nCONTROL=%s\nTRANSPORT=%s\nBACKUP=%s\n' "$container" "$control_container" "$detected" "$backup_dir"
+printf 'OK\nCONTAINER=%s\nCONTROL=%s\nTRANSPORT=mailru\nBACKUP=%s\n' "$container" "$control_container" "$backup_dir"

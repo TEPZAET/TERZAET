@@ -236,7 +236,8 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
 
             val mode = ConnectionMode.from(tunnel.connectionMode)
             if (verifiedLatency < 0L && mode == ConnectionMode.auto && tunnel.autoFallback && !tunnel.hysteriaUri.isNullOrBlank()) {
-                EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 не пропускает трафик · переключаемся на Яндекс"))
+                val documentName = if (tunnel.transportType == "mailru") "Mail Документы" else "Яндекс Документы"
+                EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 не пропускает трафик · переключаемся на $documentName"))
                 runCatching { service?.stopOpenFluxNative() }
                 _activeTransport.value = AppEvent.Transport.YANDEX
                 runCatching {

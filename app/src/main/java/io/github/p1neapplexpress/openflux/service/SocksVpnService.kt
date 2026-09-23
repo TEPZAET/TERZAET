@@ -220,7 +220,11 @@ class SocksVpnService : android.net.VpnService() {
                     recoverTransport("сеть снова доступна")
                     continue
                 }
-                val latency = activeLatency(4_000)
+                if (!tun2socks.isHealthy()) {
+                    recoverTransport("VPN-процесс остановился", generation)
+                    continue
+                }
+                val latency = activeLatency(6_000)
                 EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.CHECKING))
                 if (latency >= 0L) {
                     failures = 0
@@ -266,11 +270,11 @@ class SocksVpnService : android.net.VpnService() {
                     EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.YANDEX))
                     supervisor.start(lastTransportArgs.orEmpty(), lastEncryptionKey)
                 }
-                val deadline = System.currentTimeMillis() + 45_000L
+                val deadline = System.currentTimeMillis() + 90_000L
                 while (!activeReady() && activeError() == null && System.currentTimeMillis() < deadline && !stopping.get() && expectedGeneration == sessionGeneration.get()) {
                     delay(250L)
                 }
-                if (activeReady() && activeLatency(5_000) >= 0L) {
+                if (activeReady() && waitForDataPath(90_000L)) {
                     binder.startTun2Socks()
                     restored = vpn.isRunning.get()
                     if (restored) break
@@ -371,6 +375,15 @@ class SocksVpnService : android.net.VpnService() {
     }
 
     private fun activeSocksPort() = if (activeBackend == Backend.HYSTERIA) hysteria.socksPort else supervisor.socksPort
+
+    private suspend fun waitForDataPath(timeoutMs: Long): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!stopping.get() && System.currentTimeMillis() < deadline) {
+            if (activeLatency(6_000) >= 0L) return true
+            delay(2_000L)
+        }
+        return false
+    }
 
     private fun stopClients() {
         runCatching { supervisor.stop() }

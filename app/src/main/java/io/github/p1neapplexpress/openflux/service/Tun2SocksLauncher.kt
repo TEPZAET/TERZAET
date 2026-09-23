@@ -57,22 +57,25 @@ class Tun2SocksLauncher(private val context: Context) {
 
         makePdnsdConf(listenPort = dnsPort, upstreamPort = relay.port)
         Logx.i(TAG, "starting pdnsd (DNS via tunnel)")
-        ProcessRunner.execFireAndForget(
+        val dnsProcess = ProcessRunner.execFireAndForget(
             command = listOf(pdnsdBin, "-c", "${context.filesDir}/pdnsd.conf"),
             workingDir = context.filesDir.absolutePath,
         )
-        Thread.sleep(500L)
+        if (dnsProcess == null) return false
+        if (!awaitPid("${context.filesDir}/pdnsd.pid", 3_000L)) return false
 
         Logx.i(TAG, "starting tun2socks")
-        ProcessRunner.execFireAndForget(
+        val tunProcess = ProcessRunner.execFireAndForget(
             command = buildCommand(tun2socksBin, fd, socksPort, dnsPort, username, password, ipv6, udpgw, enableSocksUdpRelay, sockPath),
             workingDir = context.filesDir.absolutePath,
         )
-        Thread.sleep(500L)
+        if (tunProcess == null) return false
+        if (!awaitPid("${context.filesDir}/tun2socks.pid", 3_000L)) return false
 
         for (attempt in 1..SEND_FD_ATTEMPTS) {
             val r = NativeBridge.sendfd(fd, sockPath.absolutePath)
             if (r == 0) {
+                if (!isHealthy()) return false
                 Logx.i(TAG, "sendfd ok on attempt $attempt")
                 return true
             }
@@ -86,6 +89,19 @@ class Tun2SocksLauncher(private val context: Context) {
         }
 
         Logx.e(TAG, "sendfd failed after $SEND_FD_ATTEMPTS attempts")
+        return false
+    }
+
+    fun isHealthy(): Boolean =
+        ProcessRunner.isPidAlive("${context.filesDir}/pdnsd.pid") &&
+            ProcessRunner.isPidAlive("${context.filesDir}/tun2socks.pid") && dnsRelay != null
+
+    private fun awaitPid(path: String, timeoutMs: Long): Boolean {
+        val deadline = android.os.SystemClock.elapsedRealtime() + timeoutMs
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            if (ProcessRunner.isPidAlive(path)) return true
+            Thread.sleep(100L)
+        }
         return false
     }
 

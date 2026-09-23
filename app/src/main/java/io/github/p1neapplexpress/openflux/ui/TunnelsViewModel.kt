@@ -221,12 +221,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
                 ?.let { fail(it); return@launch }
 
             _active.value = TunnelState.Checking(tunnel)
-            var verifiedLatency = -1L
-            for (attempt in 0..2) {
-                verifiedLatency = runCatching { service?.measureDataPathLatency() ?: -1L }.getOrDefault(-1L)
-                if (verifiedLatency >= 0L) break
-                if (attempt < 2) delay(1_000L)
-            }
+            var verifiedLatency = waitForDataPath(90_000L)
 
             val mode = ConnectionMode.from(tunnel.connectionMode)
             if (verifiedLatency < 0L && mode == ConnectionMode.auto && tunnel.autoFallback && !tunnel.hysteriaUri.isNullOrBlank()) {
@@ -245,11 +240,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 awaitService(TRANSPORT_TIMEOUT_MS, "TR-205", "Резервный транспорт не запустился") { it.isFServiceRunning() }
                     ?.let { fail(it); return@launch }
-                for (attempt in 0..2) {
-                    verifiedLatency = runCatching { service?.measureDataPathLatency() ?: -1L }.getOrDefault(-1L)
-                    if (verifiedLatency >= 0L) break
-                    if (attempt < 2) delay(1_000L)
-                }
+                verifiedLatency = waitForDataPath(90_000L)
             }
 
             if (verifiedLatency >= 0L) {
@@ -277,6 +268,17 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
             startPingCounter()
             refresh()
         }
+    }
+
+    private suspend fun waitForDataPath(timeoutMs: Long): Long {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (service == null || runCatching { service?.nativeError() != null }.getOrDefault(true)) return -1L
+            val latency = runCatching { service?.measureDataPathLatency() ?: -1L }.getOrDefault(-1L)
+            if (latency >= 0L) return latency
+            delay(2_000L)
+        }
+        return -1L
     }
 
     private suspend fun awaitService(
@@ -410,6 +412,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeTunnel(tunnel: Tunnel) {
+        if (!tunnel.adminHost.isNullOrBlank()) return
         if (_active.value.isActive && _active.value.tunnel?.id == tunnel.id) return
         val current = repo.load().toMutableList()
         current.removeAll { it.id == tunnel.id }

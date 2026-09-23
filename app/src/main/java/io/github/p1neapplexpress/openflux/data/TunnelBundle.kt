@@ -57,7 +57,7 @@ object TunnelBundleParser {
             adminUser = null,
             adminPort = null,
             serverRevision = 0,
-            hysteriaUri = hysteria ?: base.hysteriaUri,
+            hysteriaUri = hysteria,
             connectionMode = when {
                 base.transportConnPayload.isEmpty() && hysteria != null -> ConnectionMode.hysteria2.name
                 hysteria != null -> ConnectionMode.auto.name

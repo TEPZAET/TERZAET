@@ -81,6 +81,10 @@ class ControlApiClient(
 
     fun createUser(value: ManagedUserRequest): ManagedUser = request("POST", "/v1/users", json.encodeToString(value)).let { json.decodeFromString(it) }
 
+    fun serverDocumentUrl(): String = runCatching { exec("cat /opt/terzaet/document-url").trim() }
+        .getOrElse { throw IllegalStateException("На сервере не найдена ссылка Яндекс Диска", it) }
+        .also { require(it.startsWith("https://")) { "На сервере сохранена неверная ссылка Яндекс Диска" } }
+
     fun revokeUser(id: String) { request("POST", "/v1/users/$id/revoke", null) }
 
     fun deleteUser(id: String) { request("DELETE", "/v1/users/$id", null) }

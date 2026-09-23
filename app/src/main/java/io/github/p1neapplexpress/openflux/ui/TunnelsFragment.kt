@@ -459,6 +459,8 @@ class TunnelsFragment : BaseFragment() {
             }
             val edit = row.findViewById<ImageButton>(R.id.serverEdit)
             val delete = row.findViewById<ImageButton>(R.id.serverDelete)
+            val isAdminServer = !tunnel.adminHost.isNullOrBlank()
+            delete.visibility = if (isAdminServer) View.GONE else View.VISIBLE
             edit.alpha = if (isActive) 0.28f else 1f
             delete.alpha = if (isActive) 0.28f else 1f
             edit.setOnClickListener {
@@ -581,6 +583,8 @@ class TunnelsFragment : BaseFragment() {
     private fun showItemContextMenu(anchor: View, tunnel: Tunnel) {
         val inflater = LayoutInflater.from(requireContext())
         val menuView = inflater.inflate(R.layout.popup_item_menu, null)
+        menuView.findViewById<View>(R.id.menu_delete).visibility =
+            if (tunnel.adminHost.isNullOrBlank()) View.VISIBLE else View.GONE
 
         val menu = PopupWindow(
             menuView,
@@ -629,6 +633,10 @@ class TunnelsFragment : BaseFragment() {
     }
 
     private fun confirmDelete(tunnel: Tunnel) {
+        if (!tunnel.adminHost.isNullOrBlank()) {
+            Toast.makeText(requireContext(), "Админ-сервер нельзя удалить из главного меню", Toast.LENGTH_SHORT).show()
+            return
+        }
         val active = vm.active.value
         if (active.isActive && active.tunnel == tunnel) {
             Toast.makeText(requireContext(), R.string.cannot_delete_active, Toast.LENGTH_SHORT).show()

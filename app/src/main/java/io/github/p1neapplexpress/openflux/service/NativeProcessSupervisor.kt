@@ -11,8 +11,6 @@ import io.github.p1neapplexpress.openflux.util.Logx
 import io.github.p1neapplexpress.openflux.util.Loopback
 import java.io.File
 import java.io.IOException
-import java.net.InetSocketAddress
-import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
@@ -119,32 +117,7 @@ class NativeProcessSupervisor(
 
     fun measureDataPathLatency(timeoutMs: Int = 5_000): Long {
         if (!ready.get() || socksPort <= 0) return -1L
-        val startedAt = SystemClock.elapsedRealtime()
-        return runCatching {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress("127.0.0.1", socksPort), timeoutMs)
-                socket.soTimeout = timeoutMs
-                val output = socket.getOutputStream()
-                val input = socket.getInputStream()
-                output.write(byteArrayOf(5, 1, 0))
-                output.flush()
-                if (input.read() != 5 || input.read() != 0) return@runCatching -1L
-                output.write(byteArrayOf(5, 1, 0, 1, 1, 1, 1, 1, 1, 0xBB.toByte()))
-                output.flush()
-                val response = ByteArray(4)
-                var offset = 0
-                while (offset < response.size) {
-                    val count = input.read(response, offset, response.size - offset)
-                    if (count < 0) return@runCatching -1L
-                    offset += count
-                }
-                if (response[0].toInt() == 5 && response[1].toInt() == 0) {
-                    SystemClock.elapsedRealtime() - startedAt
-                } else {
-                    -1L
-                }
-            }
-        }.getOrDefault(-1L)
+        return DataPathProbe.measure(socksPort, timeoutMs)
     }
 
     private fun watch(p: Process, output: Thread) {

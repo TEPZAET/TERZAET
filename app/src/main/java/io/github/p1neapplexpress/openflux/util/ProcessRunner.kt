@@ -12,7 +12,7 @@ object ProcessRunner {
     fun execFireAndForget(
         command: List<String>,
         workingDir: String? = null,
-    ) {
+    ): Process? {
         try {
             val pb = ProcessBuilder(command).redirectErrorStream(true)
             if (workingDir != null) pb.directory(File(workingDir))
@@ -29,9 +29,16 @@ object ProcessRunner {
                 } catch (_: Exception) {
                 }
             }.apply { isDaemon = true; start() }
+            return p
         } catch (e: Exception) {
             Logx.e("ProcessRunner", "exec failed: ${command.firstOrNull()}", e)
+            return null
         }
+    }
+
+    fun isPidAlive(path: String): Boolean {
+        val pid = runCatching { File(path).readText().trim().toIntOrNull() }.getOrNull() ?: return false
+        return runCatching { android.system.Os.kill(pid, 0); true }.getOrDefault(false)
     }
 
     fun killPidFile(path: String) {

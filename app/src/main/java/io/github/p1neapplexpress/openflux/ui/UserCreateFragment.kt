@@ -1,6 +1,8 @@
 package io.github.p1neapplexpress.openflux.ui
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
@@ -17,15 +19,14 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import io.github.p1neapplexpress.openflux.R
 import io.github.p1neapplexpress.openflux.data.ControlApiClient
-import io.github.p1neapplexpress.openflux.data.ManagedProfile
+import io.github.p1neapplexpress.openflux.data.ManagedUserProfiles
 import io.github.p1neapplexpress.openflux.data.ManagedUserRequest
 import io.github.p1neapplexpress.openflux.data.SavedAdminPassword
 import io.github.p1neapplexpress.openflux.data.Tunnel
+import io.github.p1neapplexpress.openflux.data.TunnelPayload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.File
 
 class UserCreateFragment : BaseFragment() {
@@ -60,7 +61,8 @@ class UserCreateFragment : BaseFragment() {
             form.addView(TextInputLayout(context).apply { hint = "Имя"; setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE); addView(alias) })
             form.addView(TextView(context).apply { text = "Выбери протоколы, которые войдут в пользовательский ключ"; textSize = 14f; setTextColor(resources.getColor(R.color.text_secondary, context.theme)); setPadding(0, dp(18), 0, dp(8)) })
             val current = tunnel
-            yandex = MaterialCheckBox(context).apply { text = "Яндекс Документы"; isChecked = current?.transportConnPayload?.isNotEmpty() == true; isEnabled = isChecked; setTextColor(resources.getColor(R.color.text_primary, context.theme)) }
+            val yandexUrlAvailable = current?.let { TunnelPayload.parse(it.transportType, it.transportConnPayload).url.isNotBlank() } == true
+            yandex = MaterialCheckBox(context).apply { text = "Яндекс Документы"; isChecked = yandexUrlAvailable; isEnabled = yandexUrlAvailable; setTextColor(resources.getColor(R.color.text_primary, context.theme)) }
             hysteria = MaterialCheckBox(context).apply { text = "Hysteria 2"; isChecked = !current?.hysteriaUri.isNullOrBlank(); isEnabled = isChecked; setTextColor(resources.getColor(R.color.text_primary, context.theme)) }
             form.addView(yandex)
             form.addView(hysteria)
@@ -84,25 +86,23 @@ class UserCreateFragment : BaseFragment() {
         val server = tunnel ?: return
         val name = alias.text?.toString()?.trim().orEmpty()
         if (name.isBlank()) { alias.error = "Укажи имя"; return }
-        val profiles = buildList {
-            if (hysteria.isChecked) server.hysteriaUri?.takeIf(String::isNotBlank)?.let { add(ManagedProfile("Hysteria 2", it)) }
-            if (yandex.isChecked && server.transportConnPayload.isNotEmpty()) {
-                val clientConfig = server.copy(adminHost = null, adminUser = null, adminPort = null)
-                add(ManagedProfile("Яндекс Документы", Json.encodeToString(Tunnel.serializer(), clientConfig)))
-            }
+        if (yandex.isChecked && TunnelPayload.parse(server.transportType, server.transportConnPayload).url.isBlank()) {
+            status.text = "В конфигурации сервера не найдена ссылка Яндекс Диска. Добавь её в настройках сервера."
+            return
         }
-        if (profiles.isEmpty()) { status.text = "Выбери хотя бы один установленный протокол"; return }
+        val includeYandex = yandex.isChecked
+        val includeHysteria = hysteria.isChecked
+        if (!includeYandex && !includeHysteria) { status.text = "Выбери хотя бы один установленный протокол"; return }
         if (server.adminHost.isNullOrBlank() || server.adminUser.isNullOrBlank()) { status.text = "Для этого сервера не настроено управление"; return }
-        val request = ManagedUserRequest(name, profiles = profiles)
         val host = server.adminHost
         val user = server.adminUser
         val port = server.adminPort ?: 22
         val saved = SavedAdminPassword.read(requireContext(), host, user, port)
-        if (saved != null) submit(server, request, saved, false)
-        else askPassword(server, request)
+        if (saved != null) submit(server, name, includeYandex, includeHysteria, saved)
+        else askPassword(server, name, includeYandex, includeHysteria)
     }
 
-    private fun askPassword(server: Tunnel, request: ManagedUserRequest) {
+    private fun askPassword(server: Tunnel, name: String, includeYandex: Boolean, includeHysteria: Boolean) {
         val host = server.adminHost ?: return
         val user = server.adminUser ?: return
         val port = server.adminPort ?: 22
@@ -120,40 +120,58 @@ class UserCreateFragment : BaseFragment() {
                 else {
                     if (remember.isChecked) SavedAdminPassword.save(requireContext(), host, user, port, value)
                     dialog.dismiss()
-                    submit(server, request, value, true)
+                    submit(server, name, includeYandex, includeHysteria, value)
                 }
             }
         }
         dialog.show()
     }
 
-    private fun submit(server: Tunnel, request: ManagedUserRequest, password: String, retry: Boolean) {
+    private fun submit(server: Tunnel, name: String, includeYandex: Boolean, includeHysteria: Boolean, password: String) {
         create.isEnabled = false
         status.text = "Создаём пользователя и ключ…"
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    ControlApiClient(server.adminHost!!, server.adminUser!!, server.adminPort ?: 22, password, knownHostsPath()).use { it.createUser(request) }
+                    ControlApiClient(server.adminHost!!, server.adminUser!!, server.adminPort ?: 22, password, knownHostsPath()).use { client ->
+                        val documentUrl = if (includeYandex) client.serverDocumentUrl() else null
+                        val profiles = ManagedUserProfiles.build(server, includeYandex, includeHysteria, documentUrl)
+                        client.createUser(ManagedUserRequest(name, profiles = profiles))
+                    }
                 }
             }
             result.onSuccess { managed ->
-                parentFragmentManager.popBackStackImmediate()
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.main, AccessKeyFragment.new(managed.alias, managed.bundle))
-                    .addToBackStack("new_access_key")
-                    .commit()
+                val manager = parentFragmentManager
+                if (manager.isStateSaved) {
+                    create.isEnabled = true
+                    status.text = "Пользователь создан. Открой список пользователей, чтобы показать его ключ."
+                    return@onSuccess
+                }
+                val toastContext = requireContext().applicationContext
+                manager.popBackStackImmediate("user_create", androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                Handler(Looper.getMainLooper()).post {
+                    runCatching {
+                        if (manager.isStateSaved) return@post
+                        manager.beginTransaction()
+                            .replace(R.id.main, AccessKeyFragment.new(managed.alias, managed.bundle))
+                            .addToBackStack("new_access_key")
+                            .commit()
+                    }.onFailure {
+                        android.widget.Toast.makeText(toastContext, "Пользователь создан. Его ключ можно открыть из списка пользователей.", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
             }.onFailure { error ->
                 val authFailure = generateSequence(error) { it.cause }.any { it.message.orEmpty().contains("auth", true) }
-                if (retry && authFailure) SavedAdminPassword.forget(requireContext(), server.adminHost.orEmpty(), server.adminUser.orEmpty(), server.adminPort ?: 22)
+                if (authFailure) SavedAdminPassword.forget(requireContext(), server.adminHost.orEmpty(), server.adminUser.orEmpty(), server.adminPort ?: 22)
                 create.isEnabled = true
                 val cause = generateSequence(error) { it.cause }.firstOrNull { !it.message.isNullOrBlank() }
                 val detail = cause?.message?.take(180)?.replace(Regex("[\\r\\n]+"), " ")
                 status.text = when {
-                    retry && authFailure -> "Пароль не подошёл. Попробуй ещё раз."
+                    authFailure -> "Пароль не подошёл. Попробуй ещё раз."
                     detail.isNullOrBlank() -> "Не удалось создать ключ (${error.javaClass.simpleName}). Проверь SSH-доступ и сервер управления."
                     else -> "Не удалось создать ключ: $detail"
                 }
-                if (retry && authFailure) askPassword(server, request)
+                if (authFailure) askPassword(server, name, includeYandex, includeHysteria)
             }
         }
     }

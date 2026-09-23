@@ -35,6 +35,10 @@ class TunnelBundleTest {
 
         assertEquals(99L, imported.id)
         assertEquals(yandex.transportConnPayload, imported.transportConnPayload)
+        assertEquals(
+            "https://disk.yandex.ru/d/x",
+            TunnelPayload.parse(imported.transportType, imported.transportConnPayload).url,
+        )
         assertEquals("hysteria2://secret@example.com:443/?insecure=1", imported.hysteriaUri)
         assertEquals(ConnectionMode.auto.name, imported.connectionMode)
         assertNull(imported.adminHost)

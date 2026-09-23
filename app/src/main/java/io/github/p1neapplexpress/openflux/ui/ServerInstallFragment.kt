@@ -3,6 +3,7 @@ package io.github.p1neapplexpress.openflux.ui
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.content.Context
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.util.Base64
@@ -14,9 +15,12 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.LinearLayout
 import androidx.fragment.app.activityViewModels
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.viewpager2.widget.ViewPager2
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputLayout
@@ -45,12 +49,15 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 import org.json.JSONObject
+import java.io.OutputStream
 
 class ServerInstallFragment : BaseFragment() {
 
     companion object { fun new() = ServerInstallFragment() }
 
     private val vm: TunnelsViewModel by activityViewModels()
+    private val installTask: ServerInstallTaskViewModel by activityViewModels()
+    private lateinit var appContext: Context
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
     private lateinit var spinner: ProgressBar
@@ -58,10 +65,21 @@ class ServerInstallFragment : BaseFragment() {
     private lateinit var button: MaterialButton
     private lateinit var wizardStep: TextView
     private lateinit var screen: View
-    private var stepIndex = 0
-    private var pendingRequest: InstallRequest? = null
+    private var stepIndex: Int
+        get() = installTask.stepIndex
+        set(value) { installTask.stepIndex = value }
+    private var pendingRequest: InstallRequest?
+        get() = installTask.pendingRequest
+        set(value) { installTask.pendingRequest = value }
     private var diagnostic: Pair<Preflight, DetectedInstall>? = null
-    private var readyTunnel: Tunnel? = null
+    private var readyTunnel: Tunnel?
+        get() = installTask.readyTunnel
+        set(value) { installTask.readyTunnel = value }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        appContext = context.applicationContext
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, state: Bundle?) =
         inflater.inflate(R.layout.fragment_server_install, container, false)
@@ -75,7 +93,6 @@ class ServerInstallFragment : BaseFragment() {
         statusContainer = view.findViewById(R.id.installStatusContainer)
         button = view.findViewById(R.id.installButton)
         wizardStep = view.findViewById(R.id.wizardStep)
-        setWizardStep(0)
         val name = view.findViewById<EditText>(R.id.serverName)
         val host = view.findViewById<EditText>(R.id.serverHost)
         val user = view.findViewById<EditText>(R.id.serverUser)
@@ -91,6 +108,24 @@ class ServerInstallFragment : BaseFragment() {
         val diagnosticSpinner = view.findViewById<ProgressBar>(R.id.diagnosticSpinner)
         val diagnosticProgress = view.findViewById<ProgressBar>(R.id.diagnosticProgress)
         val diagnosticLoading = view.findViewById<TextView>(R.id.diagnosticLoading)
+        pendingRequest?.let { request ->
+            name.setText(request.name)
+            host.setText(request.host)
+            user.setText(request.user)
+            port.setText(request.port.toString())
+            document.setText(request.document)
+            encryption.setText(request.encryptionKey)
+            yandexSwitch.isChecked = request.installYandex
+            hysteriaSwitch.isChecked = request.installHysteria
+            encryptionSwitch.isChecked = request.encryptionKey.isNotBlank()
+        }
+        setWizardStep(stepIndex)
+        if (stepIndex == 3) {
+            readyTunnel?.let { tunnel ->
+                view.findViewById<TextView>(R.id.readySummary).text =
+                    "${tunnel.name}\n${tunnel.adminHost.orEmpty()}\n\nКонфигурация добавлена в приложение. Нажмите ниже, чтобы проверить подключение."
+            }
+        }
         view.findViewById<TextInputLayout>(R.id.serverDocumentContainer).setEndIconOnClickListener {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Как подготовить документ")
@@ -135,6 +170,9 @@ class ServerInstallFragment : BaseFragment() {
             if (stepIndex == 3) {
                 val tunnel = readyTunnel
                 val main = parentFragmentManager.fragments.filterIsInstance<MainFragment>().firstOrNull()
+                readyTunnel = null
+                pendingRequest = null
+                stepIndex = 0
                 parentFragmentManager.popBackStack()
                 if (tunnel != null) Handler(Looper.getMainLooper()).postDelayed({ main?.testConnection(tunnel) }, 550L)
                 return@setOnClickListener
@@ -192,34 +230,66 @@ class ServerInstallFragment : BaseFragment() {
             diagnosticLoading.alpha = 1f
             inspectThenInstall(request)
         }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                installTask.state.collect { state ->
+                    when (state) {
+                        InstallTaskState.Idle -> Unit
+                        is InstallTaskState.Running -> {
+                            button.isEnabled = false
+                            statusContainer.isVisible = true
+                            progress.isVisible = true
+                            spinner.isVisible = true
+                            progress.progress = state.percent
+                            status.text = "${state.percent}% · ${state.message}"
+                        }
+                        is InstallTaskState.Complete -> {
+                            installTask.clearResult()
+                            showInstallResult(state.request, state.result)
+                        }
+                    }
+                }
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (installTask.state.value != InstallTaskState.Idle) {
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Идёт установка")
+                        .setMessage("Дождитесь результата. Прерывание сейчас может оставить сервер настроенным лишь частично.")
+                        .setPositiveButton("Понятно", null)
+                        .show()
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
         UiAppearance.apply(view)
     }
 
+    override fun onViewStateRestored(state: Bundle?) {
+        super.onViewStateRestored(state)
+        setWizardStep(stepIndex)
+    }
+
     private fun install(request: InstallRequest) {
-        button.isEnabled = false
-        statusContainer.isVisible = true
-        progress.visibility = View.VISIBLE
-        spinner.visibility = View.VISIBLE
-        progress.progress = 2
-        statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_glass_field)
-        status.text = "Подключение к серверу…"
-        viewLifecycleOwner.lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    if (request.installYandex) {
-                        verifyDocument(request.document)
-                        verifyDocumentFromServer(request)
-                    }
-                    runInstaller(request) { percent, message ->
-                        progress.post { progress.animate().cancel(); progress.setProgress(percent, true) }
-                        status.post { status.text = "$percent% · $message" }
-                    }.getOrThrow()
+        installTask.start(request) { onProgress ->
+            runCatching {
+                if (request.installYandex) {
+                    verifyDocument(request.document)
+                    verifyDocumentFromServer(request)
                 }
+                runInstaller(request, onProgress).getOrThrow()
             }
-            progress.visibility = View.GONE
-            spinner.visibility = View.GONE
-            button.isEnabled = true
-            result.onSuccess { installed ->
+        }
+    }
+
+    private fun showInstallResult(request: InstallRequest, result: Result<InstalledServer>) {
+        progress.isVisible = false
+        spinner.isVisible = false
+        button.isEnabled = true
+        result.onSuccess { installed ->
                 SavedAdminPassword.save(requireContext(), request.host, request.user, request.port, request.password)
                 val transport = if (installed.transport == "vyandex") TransportType.vyandex else TransportType.yandex
                 val payload = if (request.installYandex) TunnelPayload.build(TunnelPayload.Form(transport = transport, url = request.document)) else emptyList()
@@ -256,10 +326,9 @@ class ServerInstallFragment : BaseFragment() {
                 }.joinToString("\n")
                 screen.findViewById<TextView>(R.id.readySummary).text = "${request.name}\n${request.host}\n\n$protocolSummary\n\nКонфигурация добавлена в приложение. Нажмите ниже, чтобы сразу запросить разрешение Android и проверить подключение."
                 setWizardStep(3)
-            }.onFailure { error ->
+        }.onFailure { error ->
                 statusContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_status_error)
                 status.text = friendlyError(error)
-            }
         }
     }
 
@@ -476,7 +545,7 @@ class ServerInstallFragment : BaseFragment() {
 
     private fun runSshCommand(request: InstallRequest, command: String): String {
         val jsch = JSch()
-        val knownHosts = File(requireContext().filesDir, "ssh_known_hosts")
+        val knownHosts = File(appContext.filesDir, "ssh_known_hosts")
         if (!knownHosts.exists()) knownHosts.createNewFile()
         jsch.setKnownHosts(knownHosts.absolutePath)
         val session = jsch.getSession(request.user, request.host, request.port)
@@ -484,18 +553,37 @@ class ServerInstallFragment : BaseFragment() {
         session.userInfo = FirstUseInfo(request.password)
         session.setConfig("StrictHostKeyChecking", "ask")
         session.setConfig("PreferredAuthentications", "password,keyboard-interactive")
-        session.connect(15_000)
-        val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
-        channel.setCommand(command)
-        val output = channel.inputStream
-        channel.connect(15_000)
-        val response = output.bufferedReader().readText()
-        while (!channel.isClosed) Thread.sleep(100L)
-        val code = channel.exitStatus
-        channel.disconnect()
-        session.disconnect()
-        if (code != 0) error("Команда VDS завершилась с кодом $code")
-        return response
+        var channel: com.jcraft.jsch.ChannelExec? = null
+        try {
+            session.connect(15_000)
+            channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
+            channel.setCommand(command)
+            val errors = TailOutputStream(8_192)
+            channel.setErrStream(errors)
+            val output = channel.inputStream
+            channel.connect(15_000)
+            val response = StringBuilder()
+            val deadline = System.nanoTime() + 120_000_000_000L
+            while (!channel.isClosed || output.available() > 0) {
+                if (System.nanoTime() > deadline) error("SSH_COMMAND_TIMEOUT")
+                val available = output.available()
+                if (available > 0) {
+                    val bytes = ByteArray(minOf(available, 8192))
+                    val count = output.read(bytes)
+                    if (count > 0 && response.length < 131_072) {
+                        response.append(String(bytes, 0, minOf(count, 131_072 - response.length), Charsets.UTF_8))
+                    }
+                } else {
+                    Thread.sleep(100L)
+                }
+            }
+            val code = channel.exitStatus
+            if (code != 0) error("Команда VDS завершилась с кодом $code: ${errors.text().takeLast(200)}")
+            return response.toString()
+        } finally {
+            channel?.disconnect()
+            session.disconnect()
+        }
     }
 
     private fun generateKey(): String {
@@ -509,7 +597,7 @@ class ServerInstallFragment : BaseFragment() {
         onProgress: (Int, String) -> Unit,
     ): Result<InstalledServer> = runCatching {
         val jsch = JSch()
-        val knownHosts = File(requireContext().filesDir, "ssh_known_hosts")
+        val knownHosts = File(appContext.filesDir, "ssh_known_hosts")
         if (!knownHosts.exists()) knownHosts.createNewFile()
         jsch.setKnownHosts(knownHosts.absolutePath)
         val session = jsch.getSession(request.user, request.host, request.port)
@@ -518,6 +606,8 @@ class ServerInstallFragment : BaseFragment() {
         session.setConfig("StrictHostKeyChecking", "ask")
         session.setConfig("PreferredAuthentications", "password,keyboard-interactive")
         session.serverAliveInterval = 15_000
+        var activeChannel: com.jcraft.jsch.ChannelExec? = null
+        try {
         session.connect(15_000)
         onProgress(8, "SSH-соединение установлено")
         val fingerprint = session.hostKey.getFingerPrint(jsch)
@@ -535,16 +625,22 @@ class ServerInstallFragment : BaseFragment() {
         stages += "printf 'PROGRESS=96|Настраиваем управление пользователями\\n' && curl -fsSL https://raw.githubusercontent.com/TEPZAET/TERZAET/feature/hysteria2-fallback/server/scripts/install-control-api.sh -o /tmp/terzaet-control-install.sh && sh /tmp/terzaet-control-install.sh 2>&1"
         val command = stages.joinToString(" && ")
         val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
+        activeChannel = channel
         channel.setCommand(command)
-        val errors = ByteArrayOutputStream()
+        val errors = TailOutputStream(16_384)
         channel.setErrStream(errors)
         val output = channel.inputStream
         channel.connect(15_000)
-        val text = StringBuilder()
+        val lines = ArrayDeque<String>()
         val pending = StringBuilder()
+        var sawOk = false
+        var sawControlReady = false
+        var transportLine: String? = null
+        var hysteriaLine: String? = null
         val startedAt = System.currentTimeMillis()
         var lastOutputAt = startedAt
         while (!channel.isClosed || output.available() > 0) {
+            if (System.currentTimeMillis() - startedAt > 1_200_000L) error("INSTALL_TIMEOUT")
             val available = output.available()
             if (available > 0) {
                 val bytes = ByteArray(minOf(available, 8192))
@@ -556,44 +652,53 @@ class ServerInstallFragment : BaseFragment() {
                     while (newline >= 0) {
                         val line = pending.substring(0, newline).trimEnd('\r')
                         pending.delete(0, newline + 1)
-                        text.appendLine(line)
+                        if (lines.size == 400) lines.removeFirst()
+                        lines.addLast(line)
+                        if (line == "OK") sawOk = true
+                        if (line == "CONTROL_API=ready") sawControlReady = true
+                        if (line.startsWith("TRANSPORT=")) transportLine = line
+                        if (line.startsWith("HY2_URI=")) hysteriaLine = line
                         Regex("^PROGRESS=(\\d{1,3})\\|(.+)$").find(line)?.let { match ->
                             onProgress(match.groupValues[1].toInt().coerceIn(0, 100), match.groupValues[2])
                         }
                         newline = pending.indexOf("\n")
                     }
+                    if (pending.length > 32_768) pending.delete(0, pending.length - 32_768)
                 }
             } else {
                 val now = System.currentTimeMillis()
-                if (now - lastOutputAt > 180_000L) {
-                    channel.disconnect()
-                    session.disconnect()
+                if (now - maxOf(lastOutputAt, errors.lastWriteAt) > 180_000L) {
                     error("INSTALL_STALLED")
-                }
-                if (now - startedAt > 1_200_000L) {
-                    channel.disconnect()
-                    session.disconnect()
-                    error("INSTALL_TIMEOUT")
                 }
                 Thread.sleep(200L)
             }
         }
-        if (pending.isNotEmpty()) text.appendLine(pending.toString())
+        if (pending.isNotEmpty()) {
+            val line = pending.toString()
+            if (lines.size == 400) lines.removeFirst()
+            lines.addLast(line)
+            if (line == "OK") sawOk = true
+            if (line == "CONTROL_API=ready") sawControlReady = true
+            if (line.startsWith("TRANSPORT=")) transportLine = line
+            if (line.startsWith("HY2_URI=")) hysteriaLine = line
+        }
         val exitCode = channel.exitStatus
-        channel.disconnect()
-        session.disconnect()
-        val outputText = text.toString()
-        if (exitCode != 0 || !outputText.lineSequence().any { it == "OK" }) {
-            val detail = errors.toString().lineSequence().lastOrNull { it.isNotBlank() }
-                ?: outputText.lineSequence().lastOrNull { it.isNotBlank() }
+        if (exitCode == 0 && !sawControlReady) error("CONTROL_API_NOT_READY")
+        if (exitCode != 0 || !sawOk || !sawControlReady) {
+            val detail = errors.text().lineSequence().lastOrNull { it.isNotBlank() }
+                ?: lines.lastOrNull { it.isNotBlank() }
                 ?: "Сервер вернул код $exitCode"
             error(detail)
         }
-        val transport = if (request.installYandex) Regex("(?m)^TRANSPORT=(yandex|vyandex)$").find(outputText)?.groupValues?.get(1)
+        val transport = if (request.installYandex) Regex("^TRANSPORT=(yandex|vyandex)$").find(transportLine.orEmpty())?.groupValues?.get(1)
             ?: error("Не удалось определить режим документа") else "hysteria"
-        val hysteriaUri = Regex("(?m)^HY2_URI=(hysteria2://\\S+)$").find(outputText)?.groupValues?.get(1)
+        val hysteriaUri = Regex("^HY2_URI=(hysteria2://\\S+)$").find(hysteriaLine.orEmpty())?.groupValues?.get(1)
         if (request.installHysteria && hysteriaUri == null) error("Не удалось получить конфигурацию Hysteria 2")
         InstalledServer(transport, fingerprint, hysteriaUri)
+        } finally {
+            activeChannel?.disconnect()
+            session.disconnect()
+        }
     }
 
     private fun friendlyError(error: Throwable): String {
@@ -606,6 +711,10 @@ class ServerInstallFragment : BaseFragment() {
                 "[SRV-803] Установка перестала отвечать\nТри минуты от сервера не было данных. Проверьте интернет VDS и свободное место, затем повторите."
             "install_timeout" in lower ->
                 "[SRV-804] Превышено время установки\nУстановка не завершилась за 20 минут и была остановлена."
+            "ssh_command_timeout" in lower ->
+                "[SSH-705] Сервер слишком долго выполняет команду\nПроверьте состояние VDS перед повторной попыткой."
+            "control_api_not_ready" in lower ->
+                "[SRV-806] Управление пользователями не подтвердило запуск\nПроверьте состояние VDS перед повторной попыткой."
             "timeout" in lower || "timed out" in lower ->
                 "[SSH-703] Сервер не ответил вовремя\nПроверьте IP, SSH-порт и доступность VDS."
             "hostkey" in lower || "host key" in lower ->
@@ -634,27 +743,38 @@ class ServerInstallFragment : BaseFragment() {
 
     override fun onNewEvent(ev: AppEvent) = Unit
 
-    private data class InstallRequest(
-        val name: String,
-        val host: String,
-        val user: String,
-        val port: Int,
-        val password: String,
-        val document: String,
-        val encryptionKey: String,
-        val installYandex: Boolean,
-        val installHysteria: Boolean,
-    ) {
-        fun validConnection() = name.isNotBlank() && host.isNotBlank() && user.isNotBlank() && port in 1..65535 && password.isNotEmpty()
-        fun validDeployment() = validConnection() && (installYandex || installHysteria) && (!installYandex || document.startsWith("https://"))
-    }
-
-    private data class InstalledServer(val transport: String, val fingerprint: String, val hysteriaUri: String?) {
-        val transportLabel: String get() = if (transport == "vyandex") "новый Яндекс Документ" else "классический Яндекс Документ"
-    }
-
     private data class DetectedInstall(val terzaet: Boolean, val openFlux: Boolean, val amnezia: Boolean)
     private data class Preflight(val dockerReady: Boolean, val freeGb: String, val cpu: String, val ram: String, val ramAvailable: String, val diskTotal: String, val diskUsed: String, val os: String, val https: Boolean, val packageManager: Boolean)
+
+    private class TailOutputStream(private val capacity: Int) : OutputStream() {
+        private val bytes = ByteArray(capacity)
+        private var next = 0
+        private var size = 0
+
+        @Volatile
+        var lastWriteAt = System.currentTimeMillis()
+            private set
+
+        @Synchronized
+        override fun write(value: Int) {
+            bytes[next] = value.toByte()
+            next = (next + 1) % capacity
+            if (size < capacity) size++
+            lastWriteAt = System.currentTimeMillis()
+        }
+
+        @Synchronized
+        override fun write(value: ByteArray, offset: Int, length: Int) {
+            for (index in offset until offset + length) write(value[index].toInt())
+        }
+
+        @Synchronized
+        fun text(): String {
+            val start = if (size == capacity) next else 0
+            val result = ByteArray(size) { bytes[(start + it) % capacity] }
+            return String(result, Charsets.UTF_8)
+        }
+    }
 
     private class FirstUseInfo(private val password: String) : UserInfo, UIKeyboardInteractive {
         override fun getPassword() = password

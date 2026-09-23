@@ -232,7 +232,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
                 ?.let { fail(it); return@launch }
 
             _active.value = TunnelState.Checking(tunnel)
-            var verifiedLatency = waitForDataPath(90_000L)
+            var verifiedLatency = waitForDataPath(35_000L)
 
             val mode = ConnectionMode.from(tunnel.connectionMode)
             if (verifiedLatency < 0L && mode == ConnectionMode.auto && tunnel.autoFallback && !tunnel.hysteriaUri.isNullOrBlank()) {
@@ -251,7 +251,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 awaitService(TRANSPORT_TIMEOUT_MS, "TR-205", "Резервный транспорт не запустился") { it.isFServiceRunning() }
                     ?.let { fail(it); return@launch }
-                verifiedLatency = waitForDataPath(90_000L)
+                verifiedLatency = waitForDataPath(20_000L)
             }
 
             if (verifiedLatency >= 0L) {

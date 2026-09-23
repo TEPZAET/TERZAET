@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 class DnsTcpRelay(
     private val socksPort: Int,
     private val upstreams: List<InetSocketAddress> = DEFAULT_UPSTREAMS,
-    private val connectTimeoutMs: Int = 10_000,
+    private val connectTimeoutMs: Int = 2_000,
 ) : Closeable {
 
     companion object {
@@ -28,8 +28,10 @@ class DnsTcpRelay(
         private const val IDLE_TIMEOUT_MS = 30_000
 
         val DEFAULT_UPSTREAMS = listOf(
+            InetSocketAddress(InetAddress.getByAddress(byteArrayOf(77, 88, 8, 8)), 53),
             InetSocketAddress(InetAddress.getByAddress(byteArrayOf(1, 1, 1, 1)), 53),
             InetSocketAddress(InetAddress.getByAddress(byteArrayOf(8, 8, 8, 8)), 53),
+            InetSocketAddress(InetAddress.getByAddress(byteArrayOf(77, 88, 8, 1)), 53),
         )
     }
 

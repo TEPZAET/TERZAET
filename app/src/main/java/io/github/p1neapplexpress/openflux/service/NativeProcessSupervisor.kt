@@ -117,7 +117,7 @@ class NativeProcessSupervisor(
 
     fun measureDataPathLatency(timeoutMs: Int = 5_000): Long {
         if (!ready.get() || socksPort <= 0) return -1L
-        return DataPathProbe.measure(socksPort, timeoutMs)
+        return DataPathProbe.measure(socksPort, timeoutMs, preferYandex = true)
     }
 
     private fun watch(p: Process, output: Thread) {

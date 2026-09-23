@@ -14,10 +14,6 @@ import kotlin.concurrent.thread
 
 class DnsTcpRelayTest {
 
-    /**
-     * Stand-in for the OpenFlux SOCKS5 server: records CONNECT targets, refuses
-     * the IPs in [refuse] and echoes everything else back after connecting.
-     */
     private class FakeSocks(private val refuse: Set<String> = emptySet()) : Closeable {
         val server = ServerSocket(0, 50, Loopback.IPV4)
         val targets = CopyOnWriteArrayList<String>()
@@ -69,18 +65,18 @@ class DnsTcpRelayTest {
                 val query = byteArrayOf(0, 4, 0x12, 0x34, 0x01, 0x00)
                 assertArrayEquals(query, roundTrip(relay, query))
             }
-            assertEquals(listOf("1.1.1.1:53"), socks.targets)
+            assertEquals(listOf("77.88.8.8:53"), socks.targets)
         }
     }
 
     @Test
     fun `falls back to the next resolver when socks refuses`() {
-        FakeSocks(refuse = setOf("1.1.1.1")).use { socks ->
+        FakeSocks(refuse = setOf("77.88.8.8")).use { socks ->
             DnsTcpRelay(socks.server.localPort).start().use { relay ->
                 val query = byteArrayOf(0, 2, 0x56, 0x78)
                 assertArrayEquals(query, roundTrip(relay, query))
             }
-            assertEquals(listOf("1.1.1.1:53", "8.8.8.8:53"), socks.targets)
+            assertEquals(listOf("77.88.8.8:53", "1.1.1.1:53"), socks.targets)
         }
     }
 }

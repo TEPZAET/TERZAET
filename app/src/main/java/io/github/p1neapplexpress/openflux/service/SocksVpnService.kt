@@ -252,7 +252,7 @@ class SocksVpnService : android.net.VpnService() {
             EventBus.dispatch(AppEvent.ConnectionStatus(AppEvent.Status.RESTORING))
             EventBus.dispatch(AppEvent.LogMessage("Соединение восстанавливается"))
             var restored = false
-            for (attempt in 1..4) {
+            for (attempt in 1..3) {
                 if (stopping.get() || expectedGeneration != sessionGeneration.get()) break
                 runCatching { tun2socks.stop() }
                 vpn.isRunning.set(false)
@@ -270,11 +270,11 @@ class SocksVpnService : android.net.VpnService() {
                     EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.YANDEX))
                     supervisor.start(lastTransportArgs.orEmpty(), lastEncryptionKey)
                 }
-                val deadline = System.currentTimeMillis() + 90_000L
+                val deadline = System.currentTimeMillis() + 35_000L
                 while (!activeReady() && activeError() == null && System.currentTimeMillis() < deadline && !stopping.get() && expectedGeneration == sessionGeneration.get()) {
                     delay(250L)
                 }
-                if (activeReady() && waitForDataPath(90_000L)) {
+                if (activeReady() && waitForDataPath(25_000L)) {
                     binder.startTun2Socks()
                     restored = vpn.isRunning.get()
                     if (restored) break

@@ -14,11 +14,17 @@ class MainFragment : BaseFragment() {
 
     private lateinit var pager: ViewPager2
     private lateinit var navItems: List<View>
+    private val pageCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            if (view != null) renderSelected(position)
+        }
+    }
 
     fun testConnection(tunnel: io.github.p1neapplexpress.openflux.data.Tunnel) {
         if (!::pager.isInitialized) return
         pager.setCurrentItem(0, false)
         pager.post {
+            if (view == null || !isAdded) return@post
             childFragmentManager.fragments.filterIsInstance<TunnelsFragment>().firstOrNull()?.startTunnelFromWizard(tunnel)
         }
     }
@@ -46,10 +52,15 @@ class MainFragment : BaseFragment() {
         navItems.forEachIndexed { index, item ->
             item.setOnClickListener { pager.setCurrentItem(index, true) }
         }
-        pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-            override fun onPageSelected(position: Int) = renderSelected(position)
-        })
+        pager.registerOnPageChangeCallback(pageCallback)
         renderSelected(0)
+    }
+
+    override fun onDestroyView() {
+        if (::pager.isInitialized) {
+            pager.unregisterOnPageChangeCallback(pageCallback)
+        }
+        super.onDestroyView()
     }
 
     private fun renderSelected(position: Int) {

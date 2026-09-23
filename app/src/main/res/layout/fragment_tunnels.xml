@@ -23,8 +23,10 @@
                     android:clickable="true" android:focusable="true" />
             </FrameLayout>
 
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                android:text="Выбранный сервер" android:textColor="#4E545A" android:textSize="12sp" />
             <LinearLayout android:id="@+id/configSelector" android:tag="glass" android:layout_width="wrap_content" android:layout_height="46dp"
-                android:layout_marginTop="2dp" android:background="@drawable/status_pill" android:elevation="6dp"
+                android:layout_marginTop="5dp" android:background="@drawable/status_pill" android:elevation="6dp"
                 android:gravity="center" android:orientation="horizontal" android:paddingHorizontal="15dp" android:clickable="true" android:focusable="true">
                 <View android:id="@+id/configDot" android:layout_width="22dp" android:layout_height="22dp" android:layout_marginEnd="10dp" android:background="@drawable/bg_dropdown_dot" />
                 <TextView android:id="@+id/tunnelName" android:layout_width="wrap_content" android:layout_height="wrap_content"

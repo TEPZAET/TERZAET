@@ -22,18 +22,32 @@ class ServerDetailsFragment : BaseFragment() {
     }
 
     private val vm: TunnelsViewModel by activityViewModels()
-    private val tunnel get() = vm.tunnels.value.firstOrNull { it.tunnel.id == requireArguments().getLong(TUNNEL) }?.tunnel
-        ?: error("Сервер не найден")
+    private var navigationPending = false
+    private val tunnel get() = vm.tunnels.value.firstOrNull { it.tunnel.id == arguments?.getLong(TUNNEL) }?.tunnel
+
+    override fun onResume() {
+        super.onResume()
+        navigationPending = false
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, state: Bundle?) = inflater.inflate(R.layout.fragment_server_details, container, false)
 
     override fun onViewCreated(view: View, state: Bundle?) {
-        view.findViewById<TextView>(R.id.detailName).text = tunnel.name
-        view.findViewById<TextView>(R.id.detailAddress).text = "${tunnel.adminHost} · SSH ${tunnel.adminPort ?: 22}"
-        action(view, R.id.detailProtocols, R.drawable.ic_admin_protocols, "Установленные протоколы", "Состав и состояние на VDS") { showProtocols() }
-        action(view, R.id.detailUsers, R.drawable.ic_admin_users, "Пользователи и ключи", "Доступ, лимиты и QR-коды") { open(UserManagementFragment.new(tunnel)) }
+        val server = tunnel
+        if (server == null) {
+            view.findViewById<TextView>(R.id.detailName).text = "Сервер не найден"
+            view.findViewById<TextView>(R.id.detailAddress).text = "Вернись к списку серверов"
+            view.findViewById<View>(R.id.detailProtocols).visibility = View.GONE
+            view.findViewById<View>(R.id.detailUsers).visibility = View.GONE
+            view.findViewById<View>(R.id.detailConnection).visibility = View.GONE
+            return
+        }
+        view.findViewById<TextView>(R.id.detailName).text = server.name
+        view.findViewById<TextView>(R.id.detailAddress).text = "${server.adminHost} · SSH ${server.adminPort ?: 22}"
+        action(view, R.id.detailProtocols, R.drawable.ic_admin_protocols, "Установленные протоколы", "Состав и состояние на VDS") { open(InstalledProtocolsFragment.new(server)) }
+        action(view, R.id.detailUsers, R.drawable.ic_admin_users, "Пользователи и ключи", "Доступ, лимиты и QR-коды") { open(UserManagementFragment.new(server)) }
         action(view, R.id.detailConnection, R.drawable.ic_admin_edit, "Подключение VDS", "Адрес, порт и пользователь") {
-            editConnection()
+            editConnection(server)
         }
         val content = view.findViewById<LinearLayout>(R.id.detailContent)
         for (index in 0 until content.childCount) {
@@ -53,11 +67,7 @@ class ServerDetailsFragment : BaseFragment() {
         row.setOnClickListener { click() }
     }
 
-    private fun showProtocols() {
-        open(InstalledProtocolsFragment.new(tunnel))
-    }
-
-    private fun editConnection() {
+    private fun editConnection(tunnel: Tunnel) {
         val box = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; setPadding(56, 0, 56, 0) }
         val name = EditText(requireContext()).apply { hint = "Название сервера"; setText(tunnel.name) }
         val host = EditText(requireContext()).apply { hint = "IP или домен"; setText(tunnel.adminHost) }
@@ -73,7 +83,20 @@ class ServerDetailsFragment : BaseFragment() {
             }.show()
     }
 
-    private fun open(fragment: BaseFragment) = requireActivity().supportFragmentManager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_detail").commit()
+    private fun open(fragment: BaseFragment) {
+        if (!isAdded || navigationPending) return
+        val manager = parentFragmentManager
+        if (manager.isStateSaved) return
+        navigationPending = true
+        manager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_detail").commit()
+    }
+
+    override fun onDestroyView() {
+        view?.findViewById<LinearLayout>(R.id.detailContent)?.let { content ->
+            for (index in 0 until content.childCount) content.getChildAt(index).animate().cancel()
+        }
+        super.onDestroyView()
+    }
 
     override fun onNewEvent(ev: AppEvent) = Unit
 }

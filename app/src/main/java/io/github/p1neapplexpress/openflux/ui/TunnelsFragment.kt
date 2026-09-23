@@ -49,6 +49,7 @@ import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.data.TunnelState
 import io.github.p1neapplexpress.openflux.data.TunnelBundleParser
+import io.github.p1neapplexpress.openflux.data.TunnelPayload
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import io.github.p1neapplexpress.openflux.event.AppEvent
@@ -387,11 +388,11 @@ class TunnelsFragment : BaseFragment() {
     private fun renderBackend() {
         val tunnel = selectedTunnel
         val label = when {
-            vm.active.value.isActive -> if (currentTransport == AppEvent.Transport.HYSTERIA2) "Hy2" else "ЯDoc"
-            tunnel == null -> "ЯDoc"
+            isConnectionBusy() -> if (currentTransport == AppEvent.Transport.HYSTERIA2) "Hy2" else "Яндекс"
+            tunnel == null -> "Нет сервера"
             ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.hysteria2 -> "Hy2"
             ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.auto && !tunnel.hysteriaUri.isNullOrBlank() -> "Hy2"
-            else -> "ЯDoc"
+            else -> "Яндекс"
         }
         backendBadge.text = label
     }
@@ -411,6 +412,12 @@ class TunnelsFragment : BaseFragment() {
             setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
             setPadding(dp(4), 0, dp(4), dp(16))
         })
+        content.addView(TextView(requireContext()).apply {
+            text = "Выбери сервер, затем транспорт для подключения"
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+            setPadding(dp(4), 0, dp(4), dp(14))
+        })
         val tunnels = vm.tunnels.value.map { it.tunnel }
         if (tunnels.isEmpty()) {
             content.addView(TextView(requireContext()).apply {
@@ -423,7 +430,10 @@ class TunnelsFragment : BaseFragment() {
         tunnels.forEach { tunnel ->
             val row = layoutInflater.inflate(R.layout.item_server_manage, content, false)
             val isActive = vm.active.value.isActive && vm.active.value.tunnel?.id == tunnel.id
-            row.findViewById<TextView>(R.id.serverName).text = tunnel.name
+            val isSelected = tunnel.id == vm.selectedTunnelId
+            if (isSelected) row.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_server_selected)
+            row.findViewById<TextView>(R.id.serverName).text = if (isSelected) "✓  ${tunnel.name}" else tunnel.name
+            row.findViewById<TextView>(R.id.serverAddress).text = tunnel.adminHost ?: "Пользовательский профиль"
             row.findViewById<View>(R.id.serverUsers).visibility = View.GONE
             val updateAvailable = ServerRelease.updateAvailable(tunnel)
             row.findViewById<View>(R.id.serverDot).backgroundTintList = if (updateAvailable) {
@@ -431,30 +441,55 @@ class TunnelsFragment : BaseFragment() {
             } else null
             row.findViewById<TextView>(R.id.serverType).text = when {
                 updateAvailable -> "Доступно обновление сервера"
-                isActive -> "Используется сейчас"
-                tunnel.id == vm.selectedTunnelId -> "Выбран"
-                else -> tunnel.transportType
+                isActive -> "Подключён сейчас"
+                isSelected -> "Выбран для подключения"
+                else -> "Нажми, чтобы выбрать"
             }
-            val selectedMode = ConnectionMode.from(tunnel.connectionMode)
+            var selectedMode = ConnectionMode.from(tunnel.connectionMode)
+            val yandexAvailable = TunnelPayload.parse(tunnel.transportType, tunnel.transportConnPayload).url.isNotBlank()
             val yandex = row.findViewById<MaterialButton>(R.id.serverYandex)
             val hysteria = row.findViewById<MaterialButton>(R.id.serverHysteria)
-            setTransportButton(yandex, selectedMode == ConnectionMode.yandex || (selectedMode == ConnectionMode.auto && tunnel.hysteriaUri.isNullOrBlank()), "ЯDoc")
-            setTransportButton(hysteria, selectedMode != ConnectionMode.yandex && !tunnel.hysteriaUri.isNullOrBlank(), "Hy2")
+            fun renderTransportChoice() {
+                setTransportButton(yandex, selectedMode == ConnectionMode.yandex || (selectedMode == ConnectionMode.auto && tunnel.hysteriaUri.isNullOrBlank()), "Яндекс")
+                setTransportButton(hysteria, selectedMode != ConnectionMode.yandex && !tunnel.hysteriaUri.isNullOrBlank(), "Hysteria 2")
+            }
+            renderTransportChoice()
+            yandex.alpha = if (yandexAvailable) 1f else 0.45f
             hysteria.alpha = if (tunnel.hysteriaUri.isNullOrBlank()) 0.45f else 1f
             yandex.setOnClickListener {
+                if (isConnectionBusy()) {
+                    renderTransportChoice()
+                    Toast.makeText(requireContext(), "Сначала отключи VPN, чтобы сменить транспорт", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                if (!yandexAvailable) {
+                    renderTransportChoice()
+                    Toast.makeText(requireContext(), "В профиле нет ссылки Яндекс Диска", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
                 vm.setConnectionMode(tunnel, ConnectionMode.yandex)
-                dialog.dismiss()
+                selectedMode = ConnectionMode.yandex
+                renderTransportChoice()
             }
             hysteria.setOnClickListener {
-                if (tunnel.hysteriaUri.isNullOrBlank()) {
+                if (isConnectionBusy()) {
+                    renderTransportChoice()
+                    Toast.makeText(requireContext(), "Сначала отключи VPN, чтобы сменить транспорт", Toast.LENGTH_SHORT).show()
+                } else if (tunnel.hysteriaUri.isNullOrBlank()) {
+                    renderTransportChoice()
                     Toast.makeText(requireContext(), "Hysteria 2 ещё не настроена", Toast.LENGTH_SHORT).show()
                 } else {
                     vm.setConnectionMode(tunnel, ConnectionMode.hysteria2)
-                    dialog.dismiss()
+                    selectedMode = ConnectionMode.hysteria2
+                    renderTransportChoice()
                 }
             }
             row.setOnClickListener {
-                if (vm.active.value is TunnelState.Running) vm.startTunnel(tunnel) else vm.selectTunnel(tunnel)
+                if (isConnectionBusy()) {
+                    Toast.makeText(requireContext(), "Сначала отключи VPN, чтобы выбрать другой сервер", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                vm.selectTunnel(tunnel)
                 dialog.dismiss()
             }
             val edit = row.findViewById<ImageButton>(R.id.serverEdit)
@@ -499,9 +534,19 @@ class TunnelsFragment : BaseFragment() {
 
     private fun setTransportButton(button: MaterialButton, selected: Boolean, label: String) {
         button.text = if (selected) "✓  $label" else label
+        button.contentDescription = if (selected) "$label выбран" else "$label не выбран"
+        button.isCheckable = true
+        button.isChecked = selected
         button.alpha = 1f
-        button.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#3F454A" else "#CCFFFFFF"))
-        button.setTextColor(android.graphics.Color.parseColor(if (selected) "#FFFFFF" else "#3F454A"))
+        button.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#244A54" else "#FFFFFF"))
+        button.strokeColor = ColorStateList.valueOf(android.graphics.Color.parseColor(if (selected) "#244A54" else "#9AA9AD"))
+        button.strokeWidth = ((if (selected) 2 else 1) * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+        button.setTextColor(android.graphics.Color.parseColor(if (selected) "#FFFFFF" else "#344B52"))
+    }
+
+    private fun isConnectionBusy(): Boolean = when (vm.active.value) {
+        is TunnelState.Idle, is TunnelState.Error, is TunnelState.Unavailable -> false
+        else -> true
     }
 
     
@@ -526,7 +571,11 @@ class TunnelsFragment : BaseFragment() {
 
             row.setOnClickListener {
                 it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                if (vm.active.value is TunnelState.Running) vm.startTunnel(tunnel) else vm.selectTunnel(tunnel)
+                if (isConnectionBusy()) {
+                    Toast.makeText(requireContext(), "Сначала отключи VPN, чтобы выбрать другой сервер", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                vm.selectTunnel(tunnel)
                 popup?.dismiss()
             }
 

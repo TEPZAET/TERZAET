@@ -5,7 +5,6 @@ import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.ImageView
@@ -14,18 +13,21 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.p1neapplexpress.openflux.R
-import io.github.p1neapplexpress.openflux.data.TransportType
-import io.github.p1neapplexpress.openflux.data.ConnectionMode
 import io.github.p1neapplexpress.openflux.data.Tunnel
 import io.github.p1neapplexpress.openflux.data.ServerRelease
 import io.github.p1neapplexpress.openflux.event.AppEvent
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.button.MaterialButton
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class ServersFragment : BaseFragment() {
     private val vm: TunnelsViewModel by activityViewModels()
     private lateinit var list: LinearLayout
+    private var navigationPending = false
+
+    override fun onResume() {
+        super.onResume()
+        navigationPending = false
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, state: Bundle?) =
         inflater.inflate(R.layout.fragment_servers, container, false)
@@ -36,7 +38,9 @@ class ServersFragment : BaseFragment() {
         UiAppearance.apply(view)
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                vm.tunnels.collect { items -> render(items.map { it.tunnel }.filter { !it.adminHost.isNullOrBlank() }) }
+                combine(vm.tunnels, vm.selected) { items, _ -> items }.collect { items ->
+                    render(items.map { it.tunnel }.filter { !it.adminHost.isNullOrBlank() })
+                }
             }
         }
     }
@@ -52,31 +56,23 @@ class ServersFragment : BaseFragment() {
             return
         }
         items.forEach { tunnel ->
-            val row = layoutInflater.inflate(R.layout.item_server_manage, list, false)
+            val row = layoutInflater.inflate(R.layout.item_server_compact, list, false)
             row.findViewById<TextView>(R.id.serverName).text = tunnel.name
-            row.findViewById<TextView>(R.id.serverAddress).text = "${tunnel.adminHost} · SSH ${tunnel.adminPort ?: 22}"
+            row.findViewById<TextView>(R.id.serverAddress).text = tunnel.adminHost
             val updateAvailable = ServerRelease.updateAvailable(tunnel)
-            row.findViewById<View>(R.id.serverDot).backgroundTintList = if (updateAvailable) {
-                ColorStateList.valueOf(android.graphics.Color.parseColor("#E5B642"))
-            } else null
-            row.findViewById<TextView>(R.id.serverType).text = if (updateAvailable) {
-                "Доступно обновление сервера"
-            } else TransportType.from(tunnel.transportType).name
-            (row.findViewById<View>(R.id.serverYandex).parent as View).visibility = View.GONE
+            row.findViewById<TextView>(R.id.serverState).text = if (updateAvailable) "Обновление" else if (tunnel.id == vm.selectedTunnelId) "Выбран" else ""
+            if (tunnel.id == vm.selectedTunnelId) row.setBackgroundResource(R.drawable.bg_server_selected)
             row.setOnClickListener { open(ServerDetailsFragment.new(tunnel)) }
-            row.findViewById<ImageButton>(R.id.serverEdit).apply {
-                visibility = View.GONE
-            }
-            row.findViewById<ImageButton>(R.id.serverDelete).apply {
-                visibility = View.GONE
-            }
-            row.findViewById<MaterialButton>(R.id.serverUsers).visibility = View.GONE
             list.addView(row)
         }
     }
 
     private fun open(fragment: BaseFragment) {
-        requireActivity().supportFragmentManager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_edit").commit()
+        if (!isAdded || navigationPending) return
+        val manager = requireActivity().supportFragmentManager
+        if (manager.isStateSaved) return
+        navigationPending = true
+        manager.beginTransaction().replace(R.id.main, fragment).addToBackStack("server_edit").commit()
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()

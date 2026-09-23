@@ -14,10 +14,11 @@ object DataPathProbe {
     fun measure(socksPort: Int, timeoutMs: Int): Long {
         if (socksPort <= 0) return -1L
         val started = System.nanoTime()
-        for (resolver in resolvers) {
+        for ((index, resolver) in resolvers.withIndex()) {
+            val resolverTimeout = if (index == 0) timeoutMs.coerceAtMost(3_000) else timeoutMs
             val ok = runCatching {
-                Socks5.connect(socksPort, InetSocketAddress(resolver, 53), timeoutMs).use { socket ->
-                    socket.soTimeout = timeoutMs
+                Socks5.connect(socksPort, InetSocketAddress(resolver, 53), resolverTimeout).use { socket ->
+                    socket.soTimeout = resolverTimeout
                     val output = socket.getOutputStream()
                     output.write(byteArrayOf(0, query.size.toByte()))
                     output.write(query)

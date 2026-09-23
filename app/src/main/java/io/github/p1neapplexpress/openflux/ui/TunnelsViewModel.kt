@@ -163,23 +163,34 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         _selected.value = tunnel
         _active.value = TunnelState.Connecting(tunnel)
 
-        startJob = CoroutineScope(Dispatchers.IO).launch {
+        startJob = viewModelScope.launch(Dispatchers.IO) {
             pendingTeardown?.join()
             _active.value = TunnelState.Connecting(tunnel)
 
             val ctx = getApplication<Application>()
-            val intent = VpnIntentFactory.build(ctx, VPNConfig(name = tunnel.name))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ctx.startForegroundService(intent)
-            } else {
-                ctx.startService(intent)
+            val serviceStarted = runCatching {
+                val intent = VpnIntentFactory.build(ctx, VPNConfig(name = tunnel.name))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    ctx.startForegroundService(intent)
+                } else {
+                    ctx.startService(intent)
+                }
+                ctx.bindService(
+                    Intent(ctx, SocksVpnService::class.java),
+                    connection,
+                    Context.BIND_AUTO_CREATE,
+                )
+            }.getOrElse { error ->
+                runCatching { ctx.stopService(Intent(ctx, SocksVpnService::class.java)) }
+                fail("VPN-100", "Не удалось запустить VPN: ${error.message ?: error.javaClass.simpleName}")
+                return@launch
+            }
+            if (!serviceStarted) {
+                runCatching { ctx.stopService(Intent(ctx, SocksVpnService::class.java)) }
+                fail("VPN-100", "Системная служба VPN не запустилась")
+                return@launch
             }
             bindRequested = true
-            ctx.bindService(
-                Intent(ctx, SocksVpnService::class.java),
-                connection,
-                Context.BIND_AUTO_CREATE,
-            )
             activeTunnelData = tunnel
 
             if (awaitBinding() == null) {
@@ -276,7 +287,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
             if (service == null || runCatching { service?.nativeError() != null }.getOrDefault(true)) return -1L
             val latency = runCatching { service?.measureDataPathLatency() ?: -1L }.getOrDefault(-1L)
             if (latency >= 0L) return latency
-            delay(2_000L)
+            delay(750L)
         }
         return -1L
     }
@@ -399,7 +410,7 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
             stop()
         }
         repo.setSelectedId(tunnel.id)
-        _selected.value = tunnel
+        _selected.value = repo.getSelected()
     }
 
     fun addTunnel(tunnel: Tunnel) {
@@ -431,12 +442,12 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setConnectionMode(tunnel: Tunnel, mode: ConnectionMode) {
+        if (_active.value.isActive && _active.value !is TunnelState.Unavailable) return
         val current = repo.load().toMutableList()
         val index = current.indexOfFirst { it.id == tunnel.id }
         if (index < 0) return
-        current[index] = tunnel.copy(connectionMode = mode.name)
+        current[index] = current[index].copy(connectionMode = mode.name)
         repo.save(current)
-        _selected.value = current[index]
         refresh()
     }
 
@@ -466,14 +477,8 @@ class TunnelsViewModel(app: Application) : AndroidViewModel(app) {
         pingJob = viewModelScope.launch(Dispatchers.IO) {
             delay(8_000L)
             while (isActive) {
-                val samples = buildList {
-                    repeat(3) {
-                        runCatching { service?.measureDataPathLatency()?.takeIf { value -> value in 1..5_000 } }.getOrNull()?.let(::add)
-                        delay(900L)
-                    }
-                }.sorted()
-                _pingMs.value = samples.getOrNull(samples.size / 2)
-                delay(45_000L)
+                _pingMs.value = runCatching { service?.measureDataPathLatency()?.takeIf { it in 1..5_000 } }.getOrNull()
+                delay(60_000L)
             }
         }
     }

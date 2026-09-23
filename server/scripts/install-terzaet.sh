@@ -175,11 +175,16 @@ while [ -z "$detected" ] && [ "$attempt" -lt 15 ]; do
     [ -n "$detected" ] || sleep 2
     attempt=$((attempt + 1))
 done
-[ -n "$detected" ] || detected="pending"
-if docker logs "$container" 2>&1 | grep -qi 'captcha'; then
+[ -n "$detected" ] || {
     docker logs "$container" >&2 || true
     restore_previous
-    fail "Yandex CAPTCHA blocked this VDS IP; use another document or server IP"
+    fail "Yandex document editor could not be opened from this VDS; check sharing permissions or CAPTCHA"
+}
+if [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" != true ] ||
+   [ "$(docker inspect -f '{{.RestartCount}}' "$container" 2>/dev/null)" != 0 ]; then
+    docker logs "$container" >&2 || true
+    restore_previous
+    fail "Yandex transport stopped or restarted during startup"
 fi
 docker rm -f "$control_container" >/dev/null 2>&1 || true
 if ! docker run -d \

@@ -44,6 +44,7 @@ import java.security.SecureRandom
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+import org.json.JSONObject
 
 class ServerInstallFragment : BaseFragment() {
 
@@ -150,7 +151,14 @@ class ServerInstallFragment : BaseFragment() {
                 val removeTerzaet = view.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeTerzaetCheck).isChecked
                 val removeOpenFlux = view.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeOpenFluxCheck).isChecked
                 if ((removeTerzaet && checks.second.terzaet) || (removeOpenFlux && checks.second.openFlux)) {
-                    removeSelectedThenInstall(requestForDiagnostics, removeTerzaet && checks.second.terzaet, removeOpenFlux && checks.second.openFlux)
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Удалить выбранные установки?")
+                        .setMessage("Данные и настройки выбранных установок на VDS будут удалены. Это действие нельзя отменить.")
+                        .setNegativeButton("Отмена", null)
+                        .setPositiveButton("Удалить") { _, _ ->
+                            removeSelectedThenInstall(requestForDiagnostics, removeTerzaet && checks.second.terzaet, removeOpenFlux && checks.second.openFlux)
+                        }
+                        .show()
                 } else {
                     setWizardStep(2)
                 }
@@ -198,7 +206,10 @@ class ServerInstallFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    if (request.installYandex) verifyDocument(request.document)
+                    if (request.installYandex) {
+                        verifyDocument(request.document)
+                        verifyDocumentFromServer(request)
+                    }
                     runInstaller(request) { percent, message ->
                         progress.post { progress.animate().cancel(); progress.setProgress(percent, true) }
                         status.post { status.text = "$percent% · $message" }
@@ -281,14 +292,14 @@ class ServerInstallFragment : BaseFragment() {
                 val data = screen.findViewById<TextView>(R.id.diagnosticData)
                 data.text = "${check.os}\nCPU: ${check.cpu} ядр.\nОЗУ: ${check.ram} всего · ${check.ramAvailable} свободно\nДиск /: ${check.diskUsed} занято · ${check.diskTotal} всего · ${check.freeGb} свободно\nDocker: ${if (check.dockerReady) "установлен" else "будет подготовлен установщиком"}\nМенеджер пакетов: ${if (check.packageManager) "найден" else "не найден"}\nHTTPS: ${if (check.https) "доступен" else "нет ответа — загрузка компонентов может не пройти"}"
                 data.isVisible = true
-                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeTerzaetCheck).apply { isVisible = found.terzaet; isChecked = found.terzaet }
-                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeOpenFluxCheck).apply { isVisible = found.openFlux; isChecked = found.openFlux }
+                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeTerzaetCheck).apply { isVisible = found.terzaet; isChecked = false }
+                screen.findViewById<com.google.android.material.checkbox.MaterialCheckBox>(R.id.removeOpenFluxCheck).apply { isVisible = found.openFlux; isChecked = false }
                 screen.findViewById<TextView>(R.id.diagnosticAmnezia).apply {
                     isVisible = found.amnezia
                     text = "Amnezia обнаружена. Она останется без изменений."
                 }
                 if (!found.terzaet && !found.openFlux && !found.amnezia) screen.findViewById<TextView>(R.id.diagnosticLoading).text = "Проверка завершена. Старые компоненты не найдены."
-                button.text = if (found.terzaet || found.openFlux) "Удалить выбранное и далее" else "Далее: протоколы"
+                button.text = "Далее: протоколы"
             }
         }
     }
@@ -296,14 +307,48 @@ class ServerInstallFragment : BaseFragment() {
     private fun verifyDocument(value: String) {
         val connection = URL(value).openConnection() as HttpURLConnection
         connection.instanceFollowRedirects = true
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
+        connection.connectTimeout = 15_000
+        connection.readTimeout = 15_000
         connection.requestMethod = "GET"
-        connection.setRequestProperty("Range", "bytes=0-1024")
-        val code = connection.responseCode
-        val finalUrl = connection.url.toString().lowercase()
-        connection.disconnect()
-        if (code !in 200..399 || "passport.yandex" in finalUrl || "auth" in finalUrl) error("DOCUMENT_PRIVATE")
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+        try {
+            val code = connection.responseCode
+            val finalUrl = connection.url.toString().lowercase()
+            if (code !in 200..399 || "passport.yandex" in finalUrl || "auth" in finalUrl) error("DOCUMENT_PRIVATE")
+            val body = ByteArrayOutputStream()
+            connection.inputStream.use { stream ->
+                val buffer = ByteArray(8192)
+                while (body.size() < 4 * 1024 * 1024) {
+                    val count = stream.read(buffer, 0, minOf(buffer.size, 4 * 1024 * 1024 - body.size()))
+                    if (count < 0) break
+                    body.write(buffer, 0, count)
+                }
+            }
+            val html = body.toString(Charsets.UTF_8.name())
+            val configText = Regex("<script[^>]*id=\"client-config\"[^>]*>(.*?)</script>", RegexOption.DOT_MATCHES_ALL)
+                .find(html)?.groupValues?.get(1) ?: error("DOCUMENT_EDITOR_UNAVAILABLE")
+            val office = JSONObject(configText).optJSONObject("officeActionData") ?: error("DOCUMENT_EDITOR_UNAVAILABLE")
+            val modern = office.optString("action_url").isNotBlank() && office.optString("access_token").isNotBlank()
+            val legacy = office.optJSONObject("editor_config") != null && office.optString("balancer_url").isNotBlank()
+            if (!modern && !legacy) error("DOCUMENT_EDITOR_UNAVAILABLE")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun verifyDocumentFromServer(request: InstallRequest) {
+        val encodedUrl = Base64.encodeToString(request.document.toByteArray(), Base64.NO_WRAP)
+        val command = "url=\$(printf %s '$encodedUrl' | base64 -d); " +
+            "body=\$(curl -fsSL --max-time 20 -A Mozilla/5.0 \"\$url\") || exit 21; " +
+            "printf %s \"\$body\" | grep -q 'id=\"client-config\"' && " +
+            "printf %s \"\$body\" | grep -q 'officeActionData' || exit 22"
+        try {
+            runSshCommand(request, command)
+        } catch (error: Exception) {
+            if (error.message?.contains("кодом 22") == true) error("DOCUMENT_SERVER_CAPTCHA")
+            if (error.message?.contains("кодом 21") == true) error("DOCUMENT_SERVER_UNREACHABLE")
+            throw error
+        }
     }
 
     private fun preflight(request: InstallRequest): Result<Preflight> = runCatching {
@@ -367,7 +412,7 @@ class ServerInstallFragment : BaseFragment() {
         wizardStep.text = labels[stepIndex]
         button.text = when (stepIndex) {
             0 -> "Далее: проверить сервер"
-            1 -> if (diagnostic == null) "Повторить диагностику" else if (diagnostic?.second?.let { it.terzaet || it.openFlux } == true) "Удалить выбранное и далее" else "Далее: протоколы"
+            1 -> if (diagnostic == null) "Повторить диагностику" else "Далее: протоколы"
             2 -> "Развернуть и настроить"
             else -> "Протестировать подключение"
         }
@@ -573,11 +618,17 @@ class ServerInstallFragment : BaseFragment() {
                 "[VDS-712] Закрыт исходящий HTTPS\nРазрешите серверу подключения через порт 443."
             "docker" in lower ->
                 "[SRV-801] Docker не удалось подготовить\nСвободите место на диске и проверьте доступ VDS к интернету.\n$raw"
+            "document_server_captcha" in lower ->
+                "[DOC-806] VDS не видит редактор Яндекс Документа\nЯндекс может показывать проверку вместо документа. Откройте ссылку с VDS, проверьте доступ к редактированию или используйте другой документ. Установка не запускалась."
+            "document_server_unreachable" in lower ->
+                "[DOC-808] VDS не может открыть документ Яндекса\nПроверьте ссылку и доступ VDS к Яндексу. Установка не запускалась."
+            "document_editor_unavailable" in lower ->
+                "[DOC-807] Ссылка не открывает редактор документа\nПроверьте доступ по ссылке с правом редактирования. Установка не запускалась."
             "document" in lower || "yandex" in lower ->
                 "[DOC-802] Документ Яндекса недоступен\nОткройте доступ по ссылке и повторите установку.\n$raw"
             "hysteria" in lower || "hy2" in lower ->
                 "[HY2-805] Hysteria 2 не удалось настроить\nПроверьте доступ VDS к GitHub и откройте UDP-порт 443.\n$raw"
-            else -> "[SRV-800] Установка не завершена\n$raw\nПредыдущая рабочая версия восстановлена автоматически."
+            else -> "[SRV-800] Установка не завершена\n$raw\nПроверьте состояние сервера перед повторной попыткой."
         }
     }
 

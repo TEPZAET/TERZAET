@@ -3,7 +3,7 @@
     <ImageView android:id="@+id/adminActionIcon" android:layout_width="46dp" android:layout_height="46dp" android:padding="11dp" android:background="@drawable/admin_icon_bg" android:src="@drawable/ic_admin_protocols" app:tint="@color/colorPrimary" />
     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:layout_weight="1" android:orientation="vertical">
         <TextView android:id="@+id/adminActionTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Протоколы" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
-        <TextView android:id="@+id/adminActionSubtitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="ЯDoc и Hysteria 2" android:textColor="@color/text_secondary" android:textSize="12sp" />
+        <TextView android:id="@+id/adminActionSubtitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Документы и Hysteria 2" android:textColor="@color/text_secondary" android:textSize="12sp" />
     </LinearLayout>
     <ImageView android:layout_width="24dp" android:layout_height="24dp" android:padding="4dp" android:src="@drawable/ic_chevron_right" app:tint="@color/text_tertiary" />
 </LinearLayout>

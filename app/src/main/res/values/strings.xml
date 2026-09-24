@@ -62,7 +62,6 @@
     <string name="no_tunnel">No tunnel</string>
     <string name="uptime_label">Connected for</string>
     <string name="select_config">Configuration</string>
-    <string name="no_configs">No configurations</string>
     <string name="action_edit">Edit</string>
     <string name="action_delete">Delete</string>
     <string name="delete_config_title">Delete configuration?</string>

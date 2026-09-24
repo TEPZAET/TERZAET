@@ -491,7 +491,11 @@ int SocksUdpGwClient_Init (SocksUdpGwClient *o, int udp_mtu, int max_connections
     
     // init arguments
     o->udp_mtu = udp_mtu;
+#ifdef ANDROID_UDP
+    o->socks_server_addr = remote_udpgw_addr;
+#else
     o->socks_server_addr = socks_server_addr;
+#endif
     o->auth_info = auth_info;
     o->num_auth_info = num_auth_info;
     o->remote_udpgw_addr = remote_udpgw_addr;

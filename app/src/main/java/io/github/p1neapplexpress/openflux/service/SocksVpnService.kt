@@ -111,6 +111,7 @@ class SocksVpnService : android.net.VpnService() {
                     ipv6 = i.getBooleanExtra(Constants.INTENT_IPV6_PROXY, false),
                     udpgw = i.getStringExtra(Constants.INTENT_UDP_GW),
                     enableSocksUdpRelay = activeBackend == Backend.HYSTERIA,
+                    udpRelayPort = if (activeBackend == Backend.HYSTERIA) hysteria.udpRelayPort else 0,
                 )
 
                 if (ok) {
@@ -145,7 +146,7 @@ class SocksVpnService : android.net.VpnService() {
         }
         hysteria = HysteriaSupervisor(applicationContext, { fd -> protect(fd) }) { message ->
             if (allowHysteriaFallback && !stopping.get() && lastTransportArgs?.isNotEmpty() == true) {
-                EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 недоступна · переключаемся на Яндекс"))
+                EventBus.dispatch(AppEvent.LogMessage("Hysteria 2 недоступна · включаем резервное подключение"))
                 activeBackend = Backend.YANDEX
                 EventBus.dispatch(AppEvent.TransportChanged(AppEvent.Transport.YANDEX))
                 hysteria.stop()

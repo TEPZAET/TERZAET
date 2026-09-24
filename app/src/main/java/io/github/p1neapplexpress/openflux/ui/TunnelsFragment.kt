@@ -375,7 +375,7 @@ class TunnelsFragment : BaseFragment() {
 
     private fun renderSelected(tunnel: Tunnel?) {
         selectedTunnel = tunnel
-        tunnelName.text = tunnel?.name ?: getString(R.string.no_configs)
+        tunnelName.text = tunnel?.name ?: "Выберите сервер"
         configDot.background.setTint(
             ContextCompat.getColor(
                 requireContext(),
@@ -387,10 +387,11 @@ class TunnelsFragment : BaseFragment() {
 
     private fun renderBackend() {
         val tunnel = selectedTunnel
+        backendBadge.visibility = if (tunnel == null) View.GONE else View.VISIBLE
         val documentLabel = if (tunnel?.transportType == "mailru") "Mail" else "Яндекс"
         val label = when {
             isConnectionBusy() -> if (currentTransport == AppEvent.Transport.HYSTERIA2) "Hy2" else documentLabel
-            tunnel == null -> "Нет сервера"
+            tunnel == null -> ""
             ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.hysteria2 -> "Hy2"
             ConnectionMode.from(tunnel.connectionMode) == ConnectionMode.auto && !tunnel.hysteriaUri.isNullOrBlank() -> "Hy2"
             else -> documentLabel
@@ -422,7 +423,7 @@ class TunnelsFragment : BaseFragment() {
         val tunnels = vm.tunnels.value.map { it.tunnel }
         if (tunnels.isEmpty()) {
             content.addView(TextView(requireContext()).apply {
-                text = getString(R.string.no_configs)
+                text = "Серверы отсутствуют"
                 textSize = 14f
                 setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
                 setPadding(dp(4), dp(16), dp(4), dp(24))
@@ -556,7 +557,7 @@ class TunnelsFragment : BaseFragment() {
     private fun showConfigDropdown(anchor: View) {
         val tunnels = vm.tunnels.value.map { it.tunnel }
         if (tunnels.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.no_configs, Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Серверы отсутствуют", Toast.LENGTH_SHORT).show()
             return
         }
 

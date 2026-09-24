@@ -48,10 +48,9 @@ class ServersFragment : BaseFragment() {
     private fun render(items: List<Tunnel>) {
         list.removeAllViews()
         if (items.isEmpty()) {
-            val empty = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = android.view.Gravity.CENTER; setPadding(dp(24), dp(24), dp(24), dp(24)); setBackgroundResource(R.drawable.glass_panel) }
-            empty.addView(ImageView(requireContext()).apply { setImageResource(R.drawable.ic_admin_server); imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorPrimary, context.theme)); setPadding(dp(14), dp(14), dp(14), dp(14)); background = requireContext().getDrawable(R.drawable.admin_icon_bg) }, LinearLayout.LayoutParams(dp(56), dp(56)))
-            empty.addView(TextView(requireContext()).apply { text = "Здесь появятся ваши VDS"; textSize = 16f; setTypeface(typeface, android.graphics.Typeface.BOLD); gravity = android.view.Gravity.CENTER; setTextColor(resources.getColor(R.color.text_primary, context.theme)); setPadding(0, dp(14), 0, dp(4)) })
-            empty.addView(TextView(requireContext()).apply { text = "Добавьте сервер, чтобы установить TERZAET и управлять подключениями."; textSize = 13f; gravity = android.view.Gravity.CENTER; setTextColor(resources.getColor(R.color.text_secondary, context.theme)) })
+            val empty = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = android.view.Gravity.CENTER; setPadding(dp(24), dp(42), dp(24), dp(42)); setBackgroundResource(R.drawable.glass_panel) }
+            empty.addView(ImageView(requireContext()).apply { setImageResource(R.drawable.ic_admin_server); imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorPrimary, context.theme)); setPadding(dp(14), dp(14), dp(14), dp(14)); background = requireContext().getDrawable(R.drawable.admin_icon_bg) }, LinearLayout.LayoutParams(dp(64), dp(64)))
+            empty.addView(TextView(requireContext()).apply { text = "Серверы отсутствуют"; textSize = 23f; setTypeface(typeface, android.graphics.Typeface.BOLD); gravity = android.view.Gravity.CENTER; setTextColor(resources.getColor(R.color.text_primary, context.theme)); setPadding(0, dp(19), 0, 0) })
             list.addView(empty)
             return
         }

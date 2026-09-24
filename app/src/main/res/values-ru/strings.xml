@@ -64,7 +64,6 @@
     <string name="uptime_label">Подключено</string>
 
     <string name="select_config">Конфигурация</string>
-    <string name="no_configs">Нет конфигураций</string>
     <string name="action_edit">Изменить</string>
     <string name="action_delete">Удалить</string>
     <string name="delete_config_title">Удалить конфигурацию?</string>

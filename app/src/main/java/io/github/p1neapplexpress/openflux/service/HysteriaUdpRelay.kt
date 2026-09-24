@@ -14,23 +14,34 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-class HysteriaUdpRelay(private val localPort: Int) : Closeable {
+class HysteriaUdpRelay(private val socksPort: Int) : Closeable {
     private val active = AtomicBoolean(false)
     private val flows = ConcurrentHashMap<InetSocketAddress, Flow>()
     private val workers = Executors.newFixedThreadPool(4)
     @Volatile private var localSocket: DatagramSocket? = null
     @Volatile private var receiver: Thread? = null
+    @Volatile var port: Int = 0
+        private set
+    @Volatile var failure: String? = null
+        private set
 
     fun start(): Boolean = runCatching {
-        val socket = DatagramSocket(null)
-        socket.reuseAddress = false
-        socket.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), localPort))
+        val address = InetAddress.getByName("127.0.0.1")
+        var socket: DatagramSocket
+        do {
+            socket = DatagramSocket(null)
+            socket.reuseAddress = false
+            socket.bind(InetSocketAddress(address, 0))
+            if (socket.localPort == socksPort) socket.close()
+        } while (socket.isClosed)
         localSocket = socket
+        port = socket.localPort
         openFlow(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 1)).close()
         active.set(true)
         receiver = Thread(::receiveLoop, "TerzaetHy2UdpRelay").apply { isDaemon = true; start() }
         true
     }.getOrElse {
+        failure = it.message ?: it.javaClass.simpleName
         close()
         Logx.e("HysteriaUdpRelay", "SOCKS5 UDP association failed: ${it.message}")
         false
@@ -67,33 +78,38 @@ class HysteriaUdpRelay(private val localPort: Int) : Closeable {
 
     private fun openFlow(source: InetSocketAddress): Flow {
         val control = Socket()
-        control.tcpNoDelay = true
-        control.soTimeout = CONTROL_TIMEOUT_MS
-        control.connect(InetSocketAddress("127.0.0.1", localPort), CONTROL_TIMEOUT_MS)
-        val input = control.getInputStream()
-        val output = control.getOutputStream()
-        output.write(byteArrayOf(5, 1, 0))
-        output.flush()
-        val hello = readExact(input, 2)
-        check(hello[0].toInt() == 5 && hello[1].toInt() == 0) { "SOCKS5 authentication method rejected" }
-        output.write(byteArrayOf(5, 3, 0, 1, 0, 0, 0, 0, 0, 0))
-        output.flush()
-        val head = readExact(input, 4)
-        check(head[0].toInt() == 5 && head[1].toInt() == 0) { "SOCKS5 UDP ASSOCIATE rejected: ${head[1].toInt() and 0xff}" }
-        val relayAddress = when (head[3].toInt() and 0xff) {
-            1 -> InetAddress.getByAddress(readExact(input, 4))
-            3 -> InetAddress.getByName(String(readExact(input, readExact(input, 1)[0].toInt() and 0xff), Charsets.US_ASCII))
-            4 -> InetAddress.getByAddress(readExact(input, 16))
-            else -> error("SOCKS5 returned an unknown UDP address type")
+        try {
+            control.tcpNoDelay = true
+            control.soTimeout = CONTROL_TIMEOUT_MS
+            control.connect(InetSocketAddress("127.0.0.1", socksPort), CONTROL_TIMEOUT_MS)
+            val input = control.getInputStream()
+            val output = control.getOutputStream()
+            output.write(byteArrayOf(5, 1, 0))
+            output.flush()
+            val hello = readExact(input, 2)
+            check(hello[0].toInt() == 5 && hello[1].toInt() == 0) { "SOCKS5 authentication method rejected" }
+            output.write(byteArrayOf(5, 3, 0, 1, 0, 0, 0, 0, 0, 0))
+            output.flush()
+            val head = readExact(input, 4)
+            check(head[0].toInt() == 5 && head[1].toInt() == 0) { "SOCKS5 UDP ASSOCIATE rejected: ${head[1].toInt() and 0xff}" }
+            val relayAddress = when (head[3].toInt() and 0xff) {
+                1 -> InetAddress.getByAddress(readExact(input, 4))
+                3 -> InetAddress.getByName(String(readExact(input, readExact(input, 1)[0].toInt() and 0xff), Charsets.US_ASCII))
+                4 -> InetAddress.getByAddress(readExact(input, 16))
+                else -> error("SOCKS5 returned an unknown UDP address type")
+            }
+            val portBytes = readExact(input, 2)
+            val relayPort = ((portBytes[0].toInt() and 0xff) shl 8) or (portBytes[1].toInt() and 0xff)
+            check(relayPort in 1..65535) { "SOCKS5 returned an invalid UDP relay port" }
+            val resolved = if (relayAddress.isAnyLocalAddress) InetAddress.getByName("127.0.0.1") else relayAddress
+            control.soTimeout = 0
+            val upstream = DatagramSocket()
+            upstream.soTimeout = 1_000
+            return Flow(source, control, upstream, InetSocketAddress(resolved, relayPort))
+        } catch (error: Exception) {
+            control.close()
+            throw error
         }
-        val portBytes = readExact(input, 2)
-        val relayPort = ((portBytes[0].toInt() and 0xff) shl 8) or (portBytes[1].toInt() and 0xff)
-        check(relayPort in 1..65535) { "SOCKS5 returned an invalid UDP relay port" }
-        val resolved = if (relayAddress.isAnyLocalAddress) InetAddress.getByName("127.0.0.1") else relayAddress
-        control.soTimeout = 0
-        val upstream = DatagramSocket()
-        upstream.soTimeout = 1_000
-        return Flow(source, control, upstream, InetSocketAddress(resolved, relayPort))
     }
 
     private fun readExact(input: InputStream, count: Int): ByteArray {
@@ -121,6 +137,7 @@ class HysteriaUdpRelay(private val localPort: Int) : Closeable {
         if (!active.getAndSet(false) && localSocket == null) return
         runCatching { localSocket?.close() }
         localSocket = null
+        port = 0
         receiver?.interrupt()
         receiver = null
         flows.values.forEach(Flow::close)

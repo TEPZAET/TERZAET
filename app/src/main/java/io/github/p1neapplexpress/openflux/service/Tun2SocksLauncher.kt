@@ -35,9 +35,14 @@ class Tun2SocksLauncher(private val context: Context) {
         ipv6: Boolean,
         udpgw: String?,
         enableSocksUdpRelay: Boolean,
+        udpRelayPort: Int = 0,
     ): Boolean {
         if (fd <= 0) {
             Logx.e(TAG, "invalid tun fd: $fd")
+            return false
+        }
+        if (enableSocksUdpRelay && udpRelayPort !in 1..65535) {
+            Logx.e(TAG, "UDP relay is unavailable")
             return false
         }
 
@@ -66,7 +71,7 @@ class Tun2SocksLauncher(private val context: Context) {
 
         Logx.i(TAG, "starting tun2socks")
         val tunProcess = ProcessRunner.execFireAndForget(
-            command = buildCommand(tun2socksBin, fd, socksPort, dnsPort, username, password, ipv6, udpgw, enableSocksUdpRelay, sockPath),
+            command = buildCommand(tun2socksBin, fd, socksPort, dnsPort, username, password, ipv6, udpgw, enableSocksUdpRelay, udpRelayPort, sockPath),
             workingDir = context.filesDir.absolutePath,
         )
         if (tunProcess == null) return false
@@ -124,6 +129,7 @@ class Tun2SocksLauncher(private val context: Context) {
         ipv6: Boolean,
         udpgw: String?,
         enableSocksUdpRelay: Boolean,
+        udpRelayPort: Int,
         sockPath: File,
     ): List<String> = buildList {
         add(bin)
@@ -141,7 +147,9 @@ class Tun2SocksLauncher(private val context: Context) {
         }
         if (ipv6) { add("--netif-ip6addr"); add(NETIF_IP6ADDR) }
         add("--dnsgw"); add("$DNS_GW_IP:$dnsPort")
-        if (enableSocksUdpRelay) add("--enable-udprelay")
+        if (enableSocksUdpRelay) {
+            add("--udprelay-server-addr"); add("127.0.0.1:$udpRelayPort")
+        }
         else udpgw?.let { add("--udpgw-remote-server-addr"); add(it) }
     }
 

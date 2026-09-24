@@ -71,6 +71,7 @@ class LogsFragment : BaseFragment() {
 
     private fun appendCard(raw: String) {
         val lower = raw.lowercase(Locale.ROOT)
+        if (lower.contains("stopeverything") || lower == "stop()" || lower.contains("socks5 server listening") || lower.contains("udp-сокет подготовлен")) return
         val error = lower.contains("не удалось") || lower.contains("отклонил") || lower.contains("не ответил") || lower.contains("captcha") || lower.contains("hysteria 2 завершилась")
         val success = lower.contains("восстановлено") || lower.contains("запущен") || lower.contains("проверена")
         val title: String
@@ -103,6 +104,10 @@ class LogsFragment : BaseFragment() {
             lower.contains("hysteria 2 завершилась") -> {
                 title = "Hysteria 2 завершилась"
                 explanation = raw
+            }
+            lower.contains("hysteria 2 не подготовила udp") -> {
+                title = "Hysteria 2: ошибка UDP"
+                explanation = "Не удалось включить передачу UDP. Проверьте Hysteria 2 на сервере и повторите подключение."
             }
             error -> {
                 title = "Не удалось выполнить действие"
@@ -145,6 +150,6 @@ class LogsFragment : BaseFragment() {
     private fun friendlyReason(lower: String) = when {
         lower.contains("авторизац") -> "Проверьте данные доступа к серверу."
         lower.contains("не ответил") -> "Проверьте интернет и повторите попытку через несколько секунд."
-        else -> "Соединение будет проверено повторно."
+        else -> "Не удалось завершить подключение. Проверьте сервер и попробуйте ещё раз."
     }
 }

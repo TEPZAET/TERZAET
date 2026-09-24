@@ -33,7 +33,7 @@ class HysteriaSupervisor(
     private val controller = HysteriaFdController(
         protect = protectSocket,
         onFailure = { message -> EventBus.dispatch(AppEvent.LogMessage(message)) },
-        onProtected = { EventBus.dispatch(AppEvent.LogMessage("Hy2: UDP-сокет подготовлен")) },
+        onProtected = {},
     )
     private var process: Process? = null
     private var lastOutput: String? = null
@@ -42,6 +42,8 @@ class HysteriaSupervisor(
     @Volatile
     var socksPort: Int = 0
         private set
+
+    val udpRelayPort: Int get() = udpRelay?.port ?: 0
 
     @Volatile
     var error: String? = null
@@ -115,7 +117,7 @@ class HysteriaSupervisor(
             if (Loopback.canConnect(socksPort, 200)) {
                 val relay = HysteriaUdpRelay(socksPort)
                 if (!relay.start()) {
-                    fail("Hysteria 2 запустила TCP SOCKS, но UDP ASSOCIATE не работает")
+                    fail("Hysteria 2 не подготовила UDP: ${relay.failure ?: "неизвестная ошибка"}")
                     process.destroyForcibly()
                     return
                 }
@@ -145,8 +147,6 @@ class HysteriaSupervisor(
                     lastOutput = line
                     if (line.contains("error", ignoreCase = true) || line.contains("fatal", ignoreCase = true) || line.contains("failed", ignoreCase = true)) {
                         EventBus.dispatch(AppEvent.LogMessage("Hy2: $line"))
-                    } else {
-                        EventBus.dispatch(AppEvent.LogMessage(line))
                     }
                 }
             }
